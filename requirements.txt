@@ -1,0 +1,9 @@
+pyside6
+pyopengl
+wheel
+cython
+markupsafe==2.0.1
+jinja2
+pybind11
+urdf_parser_py
+mujoco==3.2.6
