@@ -39,6 +39,9 @@ def import_dae(in_daes: List[str],
 import math
 for in_dae in {in_daes}:
     bpy.ops.wm.collada_import(filepath=in_dae)
+    for obj in bpy.context.scene.objects:
+        if obj.type != 'MESH':
+            bpy.data.objects.remove(obj, do_unlink=True)
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True, isolate_users=True)
     bpy.context.view_layer.objects.active.scale = {mesh_scale.tolist()}
     
