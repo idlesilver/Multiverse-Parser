@@ -229,9 +229,9 @@ class UsdImporter(Factory):
                                                              mesh_path=mesh_path)
             if mesh_property.mesh_file_name == os.path.basename(self.source_file_path).split('.')[0]:
                 mesh_property.mesh_file_name = mesh_name
-            if mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
+            if mesh_property.points.size == 0 or mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
                 # TODO: Fix empty mesh
-                return
+                continue
 
             geom_builder = body_builder.add_geom(geom_name=f"{mesh_name}",
                                                  geom_property=geom_property)
