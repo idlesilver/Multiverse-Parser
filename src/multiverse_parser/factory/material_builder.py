@@ -35,7 +35,8 @@ def get_input(shader: UsdShade.Shader, shader_input: str) -> Any:
             raise NotImplementedError("Only texture shader is supported.")
         file_input = output_shader.GetInput("file").Get()
         if file_input is None:
-            raise NotImplementedError("Only texture file input is supported.")
+            print("Only texture file input is supported.")
+            return None
         file_path = file_input.path
         if os.path.relpath(file_path):
             file_path = os.path.join(os.path.dirname(shader.GetPrim().GetStage().GetRootLayer().realPath),
