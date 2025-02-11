@@ -169,15 +169,19 @@ class MaterialBuilder:
                 if not os.path.isabs(texture_file_path):
                     texture_file_path = os.path.join(os.path.dirname(self.stage.GetRootLayer().realPath),
                                                      texture_file_path)
-                texture_builder = TextureBuilder(file_path=texture_file_path)
-                rgb = texture_builder.rgb
-                texture_name = os.path.splitext(os.path.basename(texture_file_path))[0]
-                new_texture_file_path = os.path.join(os.path.dirname(self.stage.GetRootLayer().realPath),
-                                                     "..",
-                                                     "..",
-                                                     "textures",
-                                                     f"{texture_name}.png")
-                self.add_texture(file_path=new_texture_file_path, rgb=rgb, wrap_s=self.wrap_s, wrap_t=self.wrap_t)
+                if not os.path.exists(texture_file_path):
+                    print(f"Texture file {texture_file_path} does not exist, using black color instead.")
+                    self._diffuse_color = numpy.array([0.0, 0.0, 0.0])
+                else:
+                    texture_builder = TextureBuilder(file_path=texture_file_path)
+                    rgb = texture_builder.rgb
+                    texture_name = os.path.splitext(os.path.basename(texture_file_path))[0]
+                    new_texture_file_path = os.path.join(os.path.dirname(self.stage.GetRootLayer().realPath),
+                                                        "..",
+                                                        "..",
+                                                        "textures",
+                                                        f"{texture_name}.png")
+                    self.add_texture(file_path=new_texture_file_path, rgb=rgb, wrap_s=self.wrap_s, wrap_t=self.wrap_t)
             else:
                 raise ValueError(f"Unsupported diffuse color type: {type(diffuse_color)}")
 
@@ -186,14 +190,14 @@ class MaterialBuilder:
             pbr_shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(opacity)
 
         emissive_color = self.emissive_color
-        if isinstance(emissive_color, numpy.ndarray):
+        if isinstance(emissive_color, numpy.ndarray) and emissive_color.ndim > 0:
             if any([isinstance(x, str) for x in emissive_color]):
                 raise NotImplementedError("Emissive color texture not supported yet.")
             emissive_color_input = Gf.Vec3f(*emissive_color.tolist())
             pbr_shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(emissive_color_input)
 
         specular_color = self.specular_color
-        if isinstance(specular_color, numpy.ndarray):
+        if isinstance(specular_color, numpy.ndarray) and specular_color.ndim > 0:
             specular_color_input = Gf.Vec3f(*specular_color.tolist())
             pbr_shader.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set(specular_color_input)
 

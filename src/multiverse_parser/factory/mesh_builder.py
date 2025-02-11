@@ -39,7 +39,6 @@ class MeshProperty:
         self.check_validity()
 
     def check_validity(self):
-        assert self.points.size != 0
         if not all(face_vertex_count == 3 for face_vertex_count in self.face_vertex_counts):
             raise ValueError("Only triangular meshes are supported.")
         assert self.face_vertex_counts.size * 3 == self.face_vertex_indices.size
@@ -59,11 +58,10 @@ class MeshProperty:
             cache_mesh_stages[mesh_file_path] = mesh_stage
         mesh_prim = mesh_stage.GetPrimAtPath(mesh_path) if not mesh_path.isEmpty else mesh_stage.GetDefaultPrim()
         if not mesh_prim.IsValid() and not mesh_path.isEmpty:
-            print(f"Prim {mesh_prim} from {mesh_file_path} is not valid.")
             if not mesh_stage.GetPrimAtPath(mesh_path.GetParentPath()).IsValid():
                 mesh_prims = [prim for prim in mesh_stage.Traverse() if prim.IsA(UsdGeom.Mesh)]
             else:
-                mesh_prims = [prim for prim in mesh_stage.GetPrimAtPath(mesh_path.GetParentPath()).GetChildren()]
+                mesh_prims = [prim for prim in mesh_stage.GetPrimAtPath(mesh_path.GetParentPath()).GetChildren() if prim.IsA(UsdGeom.Mesh)]
             for mesh_prim in mesh_prims:
                 if mesh_path.name in mesh_prim.GetName():
                     break
@@ -71,7 +69,7 @@ class MeshProperty:
                 raise ValueError(f"Mesh prim {mesh_prim.GetName()} is not found in {mesh_file_path}.")
         if not mesh_prim.IsA(UsdGeom.Mesh):
             mesh_path = mesh_prim.GetPath().AppendChild(mesh_prim.GetName())
-            if mesh_stage.GetPrimAtPath(mesh_path).IsValid():
+            if mesh_stage.GetPrimAtPath(mesh_path).IsValid() and mesh_stage.GetPrimAtPath(mesh_path).IsA(UsdGeom.Mesh):
                 mesh_prim = mesh_stage.GetPrimAtPath(mesh_path)
             else:
                 print(f"Prim {mesh_prim} from {mesh_file_path} is not a mesh, try to get its child.")

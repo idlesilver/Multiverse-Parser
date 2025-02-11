@@ -110,6 +110,7 @@ class UsdImporter(Factory):
         return self.tmp_usd_file_path if save_file_path is None else self.save_tmp_model(usd_file_path=save_file_path)
 
     def _import_body(self, body_prim: Usd.Prim) -> None:
+        print(f"Importing body {body_prim.GetName()}...")
         if self.parent_map.get(body_prim) is not None:
             parent_xform_prim = self.parent_map[body_prim]
         else:
@@ -145,6 +146,7 @@ class UsdImporter(Factory):
 
     def _import_geom(self, gprim_prim: Usd.Prim, body_builder: BodyBuilder, zero_origin: bool = False) -> None:
         gprim = UsdGeom.Gprim(gprim_prim)
+        geom_name = gprim_prim.GetName()
         geom_is_visible = gprim.GetVisibilityAttr().Get() != UsdGeom.Tokens.invisible
         geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI)
 
@@ -168,7 +170,6 @@ class UsdImporter(Factory):
                                          rgba=geom_rgba,
                                          density=geom_density)
 
-            geom_name = gprim_prim.GetName()
             transformation = gprim.GetLocalTransformation()
             if zero_origin:
                 geom_pos = numpy.zeros(3)
@@ -203,7 +204,8 @@ class UsdImporter(Factory):
                 tmp_mesh_file_path, tmp_origin_mesh_file_path = self.import_mesh(mesh_file_path=mesh_file_path,
                                                                                  merge_mesh=False,
                                                                                  execute_later=True)
-                self.mesh_dict[geom_name] = (tmp_mesh_file_path,
+                mesh_name = geom_name
+                self.mesh_dict[mesh_name] = (tmp_mesh_file_path,
                                              mesh_path,
                                              gprim_prim,
                                              body_builder,
@@ -214,8 +216,9 @@ class UsdImporter(Factory):
                                              geom_is_visible)
 
     def _import_meshes(self) -> None:
+        print(f"Importing {len(self.mesh_dict)} meshes...")
         self.execute_cmds()
-        for geom_name, (tmp_mesh_file_path,
+        for mesh_name, (tmp_mesh_file_path,
                         mesh_path,
                         gprim_prim,
                         body_builder,
@@ -224,14 +227,14 @@ class UsdImporter(Factory):
                         geom_quat,
                         geom_scale,
                         geom_is_visible) in self.mesh_dict.items():
-            mesh_name = gprim_prim.GetName()
             mesh_property = MeshProperty.from_mesh_file_path(mesh_file_path=tmp_mesh_file_path,
                                                              mesh_path=mesh_path)
             if mesh_property.mesh_file_name == os.path.basename(self.source_file_path).split('.')[0]:
                 mesh_property.mesh_file_name = mesh_name
             if mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
                 # TODO: Fix empty mesh
-                return
+                continue
+            print(f"Importing mesh {mesh_path} from {tmp_mesh_file_path}...")
 
             geom_builder = body_builder.add_geom(geom_name=f"{mesh_name}",
                                                  geom_property=geom_property)
@@ -241,13 +244,14 @@ class UsdImporter(Factory):
             geom_builder.set_transform(pos=geom_pos, quat=geom_quat, scale=geom_scale)
 
             if geom_is_visible:
+                print(f"Importing material for {mesh_name}...")
                 if gprim_prim.HasAPI(UsdShade.MaterialBindingAPI):
                     material_binding_api = UsdShade.MaterialBindingAPI(gprim_prim)
                     material_paths = material_binding_api.GetDirectBindingRel().GetTargets()
                     if len(material_paths) > 1:
-                        raise NotImplementedError(f"Mesh {geom_name} has more than one material.")
+                        raise NotImplementedError(f"Mesh {mesh_name} has more than one material.")
                     if len(material_paths) == 0:
-                        raise ValueError(f"Mesh {geom_name} has no material.")
+                        raise ValueError(f"Mesh {mesh_name} has no material.")
                     material_prim = self.stage.GetPrimAtPath(material_paths[0])
                     if len(material_prim.GetPrimStack()) >= 2:
                         material_prim_stack = material_prim.GetPrimStack()[1]
