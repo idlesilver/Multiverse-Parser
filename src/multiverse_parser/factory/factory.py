@@ -284,8 +284,8 @@ class Factory:
     def execute_cmds(self) -> None:
         if len(self.cmds) == 0:
             return
-        elif len(self.cmds) == 1:
-            print(f"Executing [blender --background --python-expr\nimport bpy{self.cmds[0]}]...")
+        # elif len(self.cmds) == 1:
+        #     print(f"Executing [blender --background --python-expr\nimport bpy{self.cmds[0]}]...")
 
         processes = []
         for sub_cmd in self.cmds:
