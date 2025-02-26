@@ -9,4 +9,4 @@ from multiverse_parser.factory import (WorldBuilder,
                                        GeomBuilder, GeomType, GeomProperty,
                                        MeshBuilder, MeshProperty,
                                        MaterialBuilder, MaterialProperty)
-from multiverse_parser.utils import modify_name
+from multiverse_parser.utils import modify_name, boxify, MjcfBoxify, UrdfBoxify
