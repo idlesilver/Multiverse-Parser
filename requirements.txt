@@ -11,3 +11,6 @@ trimesh
 coacd
 numpy==1.26.4
 bpy
+usd-core
+pillow
+scipy
