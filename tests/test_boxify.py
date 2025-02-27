@@ -60,9 +60,9 @@ class TestBoxify(unittest.TestCase):
         mjcf_boxify.save_as(os.path.join(OUTPUT_PATH, f"{file_name}_boxified.xml"))
 
     def test_urdf_boxify(self):
-        file_path = f"{RESOURCES_PATH}/tiago_dual/urdf/tiago_dual.urdf"
+        file_path = f"{RESOURCES_PATH}/furniture/cabinet.urdf"
         urdf_boxify = UrdfBoxify(file_path)
-        urdf_boxify.boxify_all_meshes(threshold=0.5, from_visual=False)
+        urdf_boxify.boxify_all_meshes(threshold=0.2, from_visual=False)
         urdf_boxify.remove_all_meshes()
         file_name = os.path.basename(file_path)
         file_name = file_name.split(".")[0]

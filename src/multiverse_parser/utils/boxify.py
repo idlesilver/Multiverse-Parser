@@ -15,6 +15,7 @@ import mujoco
 from urdf_parser_py import urdf
 import xml.etree.ElementTree as ET
 import bpy
+from scipy.spatial.transform import Rotation
 
 
 def boxify(input_file: str,
@@ -214,13 +215,17 @@ class UrdfBoxify(Boxify):
                     mesh_name = os.path.splitext(os.path.basename(mesh_file_path))[0]
                     output_file = os.path.join(self.file_dir, f"{mesh_name}.obj")
                     self.boxify_mesh(mesh_file_path, output_file, threshold=threshold)
+                    origin = urdf.Pose(xyz=[0.0, 0.0, 0.0], rpy=[0.0, 0.0, 0.0]) \
+                        if not hasattr(geom, "origin") or geom.origin is None else geom.origin
                     for i, (cube_origin, cube_size) in enumerate(self.get_cubes(output_file)):
                         geom_name = f"{link.name}_cube_{i}"
-                        origin = urdf.Pose(xyz=cube_origin)
+                        origin_rotation = Rotation.from_euler("xyz", origin.rpy)
+                        cube_xyz = origin_rotation.apply(cube_origin) + origin.xyz
+                        cube_origin = urdf.Pose(xyz=cube_xyz, rpy=origin.rpy)
                         geometry = urdf.Box(size=cube_size)
                         collision = urdf.Collision(
                             geometry=geometry,
-                            origin=origin,
+                            origin=cube_origin,
                             name=geom_name)
                         link.collision = collision
                     os.remove(output_file)

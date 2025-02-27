@@ -1,0 +1,459 @@
+<robot name="apartment" version="1.0">
+  <material name="sink">
+    <color rgba="0.6 0.6 0.6 1.0" />
+  </material>
+  <material name="cabinet_surface">
+    <color rgba="0.3 0.3 0.3 1.0" />
+  </material>
+  <material name="cooktop_surface">
+    <color rgba="0.2 0.2 0.2 1.0" />
+  </material>
+  <material name="cabinet_handle">
+    <color rgba="0.8 0.8 0.8 1.0" />
+  </material>
+  <material name="coloksu">
+    <color rgba="0.8 0.0 0.0 1.0" />
+  </material>
+  <material name="countertop">
+    <color rgba="0.85 0.51 0.16 1.0" />
+  </material>
+  <material name="island_sides">
+    <color rgba="0.3 0.3 0.3 1.0" />
+  </material>
+  <link name="apartment_root">
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+  </link>
+  <joint name="furnitures_base" type="fixed">
+    <origin xyz="8.85 1.75 0.0" rpy="0 0 0" />
+    <parent link="apartment_root" />
+    <child link="furnitures_root" />
+  </joint>
+  <link name="furnitures_root" />
+  <joint name="kitchen_base" type="fixed">
+    <origin xyz="-0.03 0.75 0.005" rpy="0 0 0" />
+    <parent link="apartment_root" />
+    <child link="kitchen_root" />
+  </joint>
+  <link name="kitchen_root" />
+  <joint name="frame_A_joint" type="fixed">
+    <origin xyz="0.49 0.696 0.08" rpy="0 0 0" />
+    <parent link="kitchen_root" />
+    <child link="side_A" />
+  </joint>
+  <joint name="frame_B_joint" type="fixed">
+    <origin xyz="2.91 3.7 0.11" rpy="0.0 0.0 3.14" />
+    <parent link="kitchen_root" />
+    <child link="side_B" />
+  </joint>
+  <link name="side_A" />
+  <link name="side_B" />
+  <joint name="cabinet1_joint" type="fixed">
+    <origin xyz="0.01 0.01 1.02" rpy="0 0 0" />
+    <parent link="side_A" />
+    <child link="cabinet1" />
+  </joint>
+  <link name="cabinet1">
+    <collision name="cabinet1_cube_0">
+      <origin xyz="-0.18195398896932602 0.16031273459157092 0.8140000998973846" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5847438126802444 0.32051236918050563 0.5298896431922913" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_1">
+      <origin xyz="-0.17769429832696915 -0.15495917941370863 0.8223962485790253" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5932477563619614 0.31003145883005345 0.51309734582901" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_2">
+      <origin xyz="-0.14571983367204666 -0.10991817708054441 -0.2739588990807533" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5074657648801804 0.21994945416372502 0.04887358844280243" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_3">
+      <origin xyz="-0.13741382956504822 0.11503081773480517 0.2737298458814621" rpy="0 0 0" />
+      <geometry>
+        <box size="0.49087029695510864 0.22994853546697414 0.04489514231681824" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_4">
+      <origin xyz="-0.13502290844917297 -0.11616916204729932 0.28395789861679077" rpy="0 0 0" />
+      <geometry>
+        <box size="0.48641347885131836 0.23245142409723485 0.06428354978561401" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_5">
+      <origin xyz="-0.15206288546323776 0.27321963757276535 -0.27154227858409286" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5249695926904678 0.0947045236825943 0.5220395969226956" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_6">
+      <origin xyz="-0.15326731652021408 0.11296196286639315 -0.2761295884847641" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5225607305765152 0.2258108257301501 0.06977090239524841" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_7">
+      <origin xyz="-0.15334565192461014 0.26717790216207504 -0.7567341029644012" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5275351256132126 0.10678799450397491 0.44834405183792114" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_8">
+      <origin xyz="-0.42209210991859436 0.11503081773480517 0.269266399089247" rpy="0 0 0" />
+      <geometry>
+        <box size="0.07848626375198364 0.22994853546697414 0.559577758423984" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_9">
+      <origin xyz="-0.12817196547985077 -0.27118489146232605 0.27331878803670406" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5001153647899628 0.0775800347328186 0.5850575752556324" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_10">
+      <origin xyz="-0.18192291259765625 -0.26493390649557114 -0.5491364691406488" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5847905278205872 0.09008200466632843 1.0598529390990734" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_11">
+      <origin xyz="-0.4444627910852432 0.16031294320782763 -0.27154227858409286" rpy="0 0 0" />
+      <geometry>
+        <box size="0.05983021855354309 0.32051278641301906 0.5220395969226956" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_12">
+      <origin xyz="-0.4334277957677841 -0.10991817708054441 -0.5491364691406488" rpy="0 0 0" />
+      <geometry>
+        <box size="0.06795015931129456 0.21994945416372502 1.0598529390990734" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_13">
+      <origin xyz="-0.18195398896932602 0.275287002325058 0.269266399089247" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5847438126802444 0.0905638337135315 0.559577758423984" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_14">
+      <origin xyz="-0.4457455575466156 0.1602701470728789 -0.8058125078678131" rpy="0 0 0" />
+      <geometry>
+        <box size="0.05726468563079834 0.3204271941431216 0.5465008616447449" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_15">
+      <origin xyz="-0.426273912191391 -0.15495917941370863 0.27331878803670406" rpy="0 0 0" />
+      <geometry>
+        <box size="0.09608852863311768 0.31003145883005345 0.5850575752556324" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_16">
+      <origin xyz="-0.14458662644028664 -0.10991817708054441 -1.0549561381340027" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5097321793437004 0.21994945416372502 0.04821360111236572" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_cube_17">
+      <origin xyz="-0.15334565192461014 0.1603142247076903 -1.0299845337867737" rpy="0 0 0" />
+      <geometry>
+        <box size="0.5275351256132126 0.3205153494127444 0.09815680980682373" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="cabinet1_door_top_left_joint" type="revolute">
+    <origin xyz="0.103 -0.3 0.32" rpy="0.0 0.0 3.14" />
+    <axis xyz="0.0 0.0 -1.0" />
+    <parent link="cabinet1" />
+    <child link="cabinet1_door_top_left" />
+    <limit effort="1000.0" lower="0.0" upper="1.5708" velocity="1.5708" />
+  </joint>
+  <link name="cabinet1_door_top_left">
+    <collision name="cabinet1_door_top_left_cube_0">
+      <origin xyz="-0.0011248564357001878 -0.30553612796334134 0.3499990016222" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.02119599934667349 0.5988990068435669 0.797650009393692" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="handle_cab1_top_door_joint" type="fixed">
+    <origin xyz="-0.055 -0.5 0.0" rpy="1.57 0.0 0.0" />
+    <parent link="cabinet1_door_top_left" />
+    <child link="handle_cab1_top_door" />
+  </joint>
+  <link name="handle_cab1_top_door">
+    <collision name="handle_cab1_top_door_cube_0">
+      <origin xyz="0.01057450007647276 8.499994874000549e-05 -0.07958098500967026" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.03744607977569103 0.017465079203248024 0.018137097358703613" />
+      </geometry>
+    </collision>
+    <collision name="handle_cab1_top_door_cube_1">
+      <origin xyz="0.01057450007647276 8.529005572199821e-05 0.0779757909476757" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.03744607977569103 0.01746565941721201 0.02134748548269272" />
+      </geometry>
+    </collision>
+    <collision name="handle_cab1_top_door_cube_2">
+      <origin xyz="0.0010655703954398632 8.498504757881165e-05 -0.0016051940619945526" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.018426219932734966 0.017466390505433083 0.1378144845366478" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="oven_joint" type="fixed">
+    <origin xyz="-0.175 0.0 -0.025" rpy="0.0 0.0 0.0" />
+    <parent link="cabinet1" />
+    <child link="oven" />
+  </joint>
+  <material name="oven_gray">
+    <color rgba="0.5 0.5 0.5 1.0" />
+  </material>
+  <link name="oven">
+    <collision>
+      <geometry>
+        <box size="0.58 0.58 0.59" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="cabinet1_drawer_middle_joint" type="prismatic">
+    <origin xyz="-0.117 0.0 -0.43" rpy="0.0 0.0 3.14" />
+    <axis xyz="-1.0 0.0 0.0" />
+    <parent link="cabinet1" />
+    <child link="cabinet1_drawer_middle" />
+    <limit effort="1000.0" lower="0.0" upper="0.45" velocity="0.5" />
+  </joint>
+  <link name="cabinet1_drawer_middle">
+    <collision name="cabinet1_drawer_middle_cube_0">
+      <origin xyz="-0.21622678890748567 -0.00046562368473677837 0.09688860643655062" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.03881239891052246 0.6062259078025818 0.14281671307981014" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_1">
+      <origin xyz="0.26661941088440183 -0.001234154230597833 0.06319282064214349" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.03953990340232849 0.5590171813964844 0.11040254216641188" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_2">
+      <origin xyz="0.12335415092345199 -0.2553518632707183 -0.034162158869548875" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.23471204238012433 0.05880369246006012 0.06828505773773941" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_3">
+      <origin xyz="0.266179482854328 -0.14233514355311563 -0.030156569089740515" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.05057826638221741 0.2821174230193719 0.07629623729735613" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_4">
+      <origin xyz="-0.08610871657370837 -0.25665948462679444 -0.05057411910365772" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.1842089961282909 0.05730879306793213 0.10110815820553398" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_5">
+      <origin xyz="0.12398714743561988 0.2532517041067659 -0.050626939994799613" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.23435797588899732 0.05898897349834442 0.10121379998781777" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_6">
+      <origin xyz="0.12376115344430062 0.11135405499699648 -0.08221954852342606" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.23435797588899732 0.22480668465141207 0.02769891917705536" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_7">
+      <origin xyz="-0.08569893085159126 0.0006377570729907602 -0.08254282549023628" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.1842089961282909 0.4572863429784775 0.029537029564380646" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_8">
+      <origin xyz="-0.2067191821212277 -0.00048076602161833097 -0.03922185581177473" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.05782763659954071 0.6062259078025818 0.12940421141684055" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_9">
+      <origin xyz="0.126199185652562 -0.2692663256703977 0.10319532081484795" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.24044642644003034 0.025736570358276367 0.03362663835287094" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_10">
+      <origin xyz="-0.09478137024968629 0.26760801846539056 0.10317576304078102" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.20322423381730914 0.027653366327285767 0.03562130779027939" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_11">
+      <origin xyz="-0.09563585327953099 -0.26890683501083595 0.10320957377552986" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.20322423381730914 0.02769133448600769 0.035553090274333954" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_12">
+      <origin xyz="0.12705366201360854 0.2672443405848439 0.10321303084492683" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.24044642644003034 0.025733262300491333 0.033591218292713165" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_13">
+      <origin xyz="-0.08529123252263275 0.25662436135163785 -0.05057404832314205" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.1842089961282909 0.054687514901161194 0.10110801664450264" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_14">
+      <origin xyz="0.2664518469943291 0.1398337053408249 -0.044196394737809896" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.05093233287334442 0.28222042659763247 0.10437588859349489" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_middle_cube_15">
+      <origin xyz="0.14880185245019056 -0.14274849553065924 -0.08476897701621056" rpy="0.0 0.0 3.14" />
+      <geometry>
+        <box size="0.2852487047202885 0.28331800957676023 0.032928578555583954" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="handle_cab1_drawer_mid_joint" type="fixed">
+    <origin xyz="-0.26 0.0 0.11" rpy="1.57 0.0 0.0" />
+    <parent link="cabinet1_drawer_middle" />
+    <child link="handle_cab1_drawer_mid" />
+  </joint>
+  <link name="handle_cab1_drawer_mid">
+    <collision name="handle_cab1_drawer_mid_cube_0">
+      <origin xyz="0.01057450007647276 8.499994874000549e-05 -0.07958098500967026" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.03744607977569103 0.017465079203248024 0.018137097358703613" />
+      </geometry>
+    </collision>
+    <collision name="handle_cab1_drawer_mid_cube_1">
+      <origin xyz="0.01057450007647276 8.529005572199821e-05 0.0779757909476757" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.03744607977569103 0.01746565941721201 0.02134748548269272" />
+      </geometry>
+    </collision>
+    <collision name="handle_cab1_drawer_mid_cube_2">
+      <origin xyz="0.0010655703954398632 8.498504757881165e-05 -0.0016051940619945526" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.018426219932734966 0.017466390505433083 0.1378144845366478" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="cabinet1_drawer_bottom_joint" type="prismatic">
+    <origin xyz="-0.094 0.0 -0.95" rpy="0.0 0.0 3.14" />
+    <axis xyz="-1.0 0.0 0.0" />
+    <parent link="cabinet1" />
+    <child link="cabinet1_drawer_bottom" />
+    <limit effort="1000.0" lower="0.0" upper="0.45" velocity="0.5" />
+  </joint>
+  <link name="cabinet1_drawer_bottom">
+    <collision name="cabinet1_drawer_bottom_cube_0">
+      <origin xyz="-0.17617579043358636 -0.00033059560270027477 0.1541464999318123" rpy="0.0 0.0 -3.14" />
+      <geometry>
+        <box size="0.07845290005207062 0.6063351035118103 0.5378721207380295" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_bottom_cube_1">
+      <origin xyz="0.28932160891705433 0.0004127927875727491 0.07016286998987198" rpy="0.0 0.0 -3.14" />
+      <geometry>
+        <box size="0.04251307249069214 0.5625151097774506 0.10901109874248505" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_bottom_cube_2">
+      <origin xyz="0.2710934404147501 0.0003812582067703341 -0.037841834127902985" rpy="0.0 0.0 -3.14" />
+      <geometry>
+        <box size="0.08631567656993866 0.5679961144924164 0.10699830949306488" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_bottom_cube_3">
+      <origin xyz="0.06598525223268087 -0.2682999559856158 0.10897879675030708" rpy="0.0 0.0 -3.14" />
+      <geometry>
+        <box size="0.4050150066614151 0.02580168843269348 0.036641351878643036" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_bottom_cube_4">
+      <origin xyz="0.06513046324502111 0.26840700301707937 0.10894323512911797" rpy="0.0 0.0 -3.14" />
+      <geometry>
+        <box size="0.4050150066614151 0.025813251733779907 0.03664133697748184" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_bottom_cube_5">
+      <origin xyz="0.04590507610022287 -0.25862939843887023 -0.04573307675309479" rpy="0.0 0.0 -3.14" />
+      <geometry>
+        <box size="0.36488550901412964 0.05069275200366974 0.0996412537060678" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_bottom_cube_6">
+      <origin xyz="0.0450939869638123 0.25063919318729144 -0.04573307675309479" rpy="0.0 0.0 -3.14" />
+      <geometry>
+        <box size="0.36488550901412964 0.06675700843334198 0.0996412537060678" />
+      </geometry>
+    </collision>
+    <collision name="cabinet1_drawer_bottom_cube_7">
+      <origin xyz="0.04550592772823106 -0.008011161639743938 -0.0775358397513628" rpy="0.0 0.0 -3.14" />
+      <geometry>
+        <box size="0.36488550901412964 0.4505443572998047 0.030145715922117233" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="handle_cab1_drawer_bottom_joint" type="fixed">
+    <origin xyz="-0.237 0.0 0.35" rpy="1.57 0.0 0.0" />
+    <parent link="cabinet1_drawer_bottom" />
+    <child link="handle_cab1_drawer_bottom" />
+  </joint>
+  <link name="handle_cab1_drawer_bottom">
+    <collision name="handle_cab1_drawer_bottom_cube_0">
+      <origin xyz="0.01057450007647276 8.499994874000549e-05 -0.07958098500967026" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.03744607977569103 0.017465079203248024 0.018137097358703613" />
+      </geometry>
+    </collision>
+    <collision name="handle_cab1_drawer_bottom_cube_1">
+      <origin xyz="0.01057450007647276 8.529005572199821e-05 0.0779757909476757" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.03744607977569103 0.01746565941721201 0.02134748548269272" />
+      </geometry>
+    </collision>
+    <collision name="handle_cab1_drawer_bottom_cube_2">
+      <origin xyz="0.0010655703954398632 8.498504757881165e-05 -0.0016051940619945526" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.018426219932734966 0.017466390505433083 0.1378144845366478" />
+      </geometry>
+    </collision>
+  </link>
+  <material name="white">
+    <color rgba="1.0 1.0 1.0 1.0" />
+  </material>
+  <joint name="cabinet1_coloksu_level4_joint" type="fixed">
+    <origin xyz="-0.172 0.005 0.281" rpy="0 0 0" />
+    <parent link="cabinet1" />
+    <child link="cabinet1_coloksu_level4" />
+  </joint>
+  <link name="cabinet1_coloksu_level4">
+    <collision>
+      <geometry>
+        <box size="0.534 0.568 0.003" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="cabinet1_coloksu_level5_joint" type="fixed">
+    <origin xyz="-0.172 0.005 0.56" rpy="0 0 0" />
+    <parent link="cabinet1" />
+    <child link="cabinet1_coloksu_level5" />
+  </joint>
+  <link name="cabinet1_coloksu_level5">
+    <collision>
+      <geometry>
+        <box size="0.534 0.568 0.02" />
+      </geometry>
+    </collision>
+  </link>
+</robot>
