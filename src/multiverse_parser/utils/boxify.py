@@ -37,6 +37,29 @@ def boxify(input_file: str,
            extrude_margin: float = 0.01,
            apx_mode: str = "box",
            seed: int = 0):
+    """
+    Boxify a mesh file
+
+    :param input_file: input mesh file (OBJ or STL)
+    :param output_file: output mesh file (OBJ)
+    :param quiet: suppress log messages
+    :param threshold: concavity threshold for terminating the decomposition (0.01~1)
+    :param max_convex_hull: maximum number of convex hulls to generate
+    :param preprocess_mode: choose manifold preprocessing mode ('auto': automatically check input mesh manifoldness; 'on': force turn on the pre-processing; 'off': force turn off the pre-processing), default = 'auto'.
+    :param prep_resolution: resolution for manifold preprocess (20~100), default = 50.
+    :param resolution: sampling resolution for Hausdorff distance calculation (1e3~1e4), default = 2000.
+    :param mcts_node: max number of child nodes in MCTS (10~40), default = 20.
+    :param mcts_iteration: number of search iterations in MCTS (60~2000), default = 100.
+    :param mcts_max_depth: max search depth in MCTS (2~7), default = 3.
+    :param pca: flag to enable PCA pre-processing, default = false.
+    :param no_merge: flag to disable merge postprocessing, default = true.
+    :param decimate: enable max vertex constraint per convex hull, default = true.
+    :param max_ch_vertex: max vertex value for each convex hull, only when decimate is enabled, default = 256.
+    :param extrude: extrude neighboring convex hulls along the overlapping faces (other faces unchanged), default = false.
+    :param extrude_margin: extrude margin, only when extrude is enabled, default = 0.01.
+    :param apx_mode: approximation shape type ("ch" for convex hulls, "box" for cubes), default = "box".
+    :param seed: random seed used for sampling, default = 0.
+    """
     if not os.path.isfile(input_file):
         print(input_file, "is not a file")
         exit(1)
@@ -78,6 +101,11 @@ def boxify(input_file: str,
 
 class Boxify:
     def __init__(self, file_path: str):
+        """
+        Initialize the Boxify object
+
+        :param file_path: path to the file to be boxified
+        """
         self.file_path = file_path
 
     @staticmethod
@@ -123,9 +151,15 @@ class Boxify:
         return cubes
 
     def remove_all_meshes(self):
+        """
+        Remove all meshes from the file
+        """
         raise NotImplementedError("This method should be implemented in the subclass")
 
     def save_as(self, file_path: str):
+        """
+        Save the file to a new location
+        """
         raise NotImplementedError("This method should be implemented in the subclass")
 
     @property
@@ -140,6 +174,13 @@ class MjcfBoxify(Boxify):
         self.model: mujoco.MjModel = self.spec.compile()
 
     def boxify_mesh(self, mesh_name: str, output_path: str, threshold: float = 0.75):
+        """
+        Boxify a mesh in the MJCF file
+
+        :param mesh_name: name of the mesh to be boxified
+        :param output_path: path to save the cube
+        :param threshold: concavity threshold for terminating the decomposition (0.01~1)
+        """
         mesh_id = self.model.mesh(mesh_name).id
         mesh_spec = self.spec.meshes[mesh_id]
         mesh_dir = self.spec.meshdir
@@ -151,6 +192,12 @@ class MjcfBoxify(Boxify):
         boxify(mesh_path, output_path, threshold=threshold)
 
     def boxify_all_meshes(self, threshold: float = 0.75, visible: bool = True):
+        """
+        Boxify all meshes in the MJCF file
+
+        :param threshold: concavity threshold for terminating the decomposition (0.01~1)
+        :param visible: whether the cubes should be visible
+        """
         for body in self.spec.bodies:
             body: mujoco.MjsBody
             for geom in body.geoms:
@@ -197,6 +244,13 @@ class UrdfBoxify(Boxify):
         self.tree = ET.parse(self.file_path)
 
     def boxify_mesh(self, mesh_path: str, output_path: str, threshold: float = 0.75):
+        """
+        Boxify a mesh in the URDF file
+
+        :param mesh_path: path to the mesh to be boxified
+        :param output_path: path to save the cube
+        :param threshold: concavity threshold for terminating the decomposition (0.01~1)
+        """
         if mesh_path.startswith("package://"):
             raise NotImplementedError("package:// is not supported yet")
         elif mesh_path.startswith("file://"):
@@ -206,6 +260,12 @@ class UrdfBoxify(Boxify):
         boxify(mesh_path, output_path, threshold=threshold)
 
     def boxify_all_meshes(self, threshold: float = 0.75, from_visual: bool = True):
+        """
+        Boxify all meshes in the URDF file
+
+        :param threshold: concavity threshold for terminating the decomposition (0.01~1)
+        :param from_visual: whether to boxify the visual or collision meshes
+        """
         for link in self.robot.links:
             link: urdf.Link
             geoms = link.visuals if from_visual else link.collisions
