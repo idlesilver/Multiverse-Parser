@@ -205,14 +205,18 @@ class MjcfBoxify(Boxify):
                     mesh_name = geom.meshname
                     output_file = os.path.join(self.file_dir, f"{mesh_name}.obj")
                     self.boxify_mesh(mesh_name, output_file, threshold=threshold)
+                    origin_pos = geom.pos
+                    origin_quat = geom.quat
                     for i, (cube_origin, cube_size) in enumerate(self.get_cubes(output_file)):
                         geom_name = f"{body.name}_cube_{i}"
                         cube_size = [s * 0.5 for s in cube_size]
+                        cube_pos = cube_origin + origin_pos
                         body.add_geom(
                             name=geom_name,
                             type=mujoco.mjtGeom.mjGEOM_BOX,
                             size=cube_size,
-                            pos=cube_origin,
+                            pos=cube_pos,
+                            quat=origin_quat,
                             rgba=[0.9, 0.9, 0.9, 1.0],
                             group=geom.group if not visible else 0,
                             conaffinity=geom.conaffinity,
@@ -277,9 +281,9 @@ class UrdfBoxify(Boxify):
                     self.boxify_mesh(mesh_file_path, output_file, threshold=threshold)
                     origin = urdf.Pose(xyz=[0.0, 0.0, 0.0], rpy=[0.0, 0.0, 0.0]) \
                         if not hasattr(geom, "origin") or geom.origin is None else geom.origin
+                    origin_rotation = Rotation.from_euler("xyz", origin.rpy)
                     for i, (cube_origin, cube_size) in enumerate(self.get_cubes(output_file)):
                         geom_name = f"{link.name}_cube_{i}"
-                        origin_rotation = Rotation.from_euler("xyz", origin.rpy)
                         cube_xyz = origin_rotation.apply(cube_origin) + origin.xyz
                         cube_origin = urdf.Pose(xyz=cube_xyz, rpy=origin.rpy)
                         geometry = urdf.Box(size=cube_size)
