@@ -46,9 +46,11 @@ class TestMjcfBoxify(unittest.TestCase):
 
 class TestBoxify(unittest.TestCase):
     def test_mesh_boxify(self):
-        input_file_path = f"{RESOURCES_PATH}/meshes/IAIDrawerW60H53.stl"
-        output_file_path = f"{OUTPUT_PATH}/IAIDrawerW60H53_boxified.obj"
-        boxify(input_file_path, output_file_path, threshold=0.1, seed=3)
+        input_file_path = f"{RESOURCES_PATH}/furniture/obj/IAICabinet1W60.obj"
+        file_name = os.path.basename(input_file_path)
+        file_name = file_name.split(".")[0]
+        output_file_path = f"{OUTPUT_PATH}/{file_name}_boxified.obj"
+        boxify(input_file_path, output_file_path, threshold=0.1, seed=5)
 
     def test_mjcf_boxify(self):
         file_path = f"{RESOURCES_PATH}/mujoco_menagerie/leap_hand/left_hand.xml"
@@ -62,7 +64,7 @@ class TestBoxify(unittest.TestCase):
     def test_urdf_boxify(self):
         file_path = f"{RESOURCES_PATH}/furniture/cabinet.urdf"
         urdf_boxify = UrdfBoxify(file_path)
-        urdf_boxify.boxify_all_meshes(threshold=0.2, from_visual=False)
+        urdf_boxify.boxify_all_meshes(threshold=0.1, from_visual=False, seed=10)
         urdf_boxify.remove_all_meshes()
         file_name = os.path.basename(file_path)
         file_name = file_name.split(".")[0]

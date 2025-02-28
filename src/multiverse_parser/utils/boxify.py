@@ -173,13 +173,14 @@ class MjcfBoxify(Boxify):
         self.spec: mujoco.MjSpec = mujoco.MjSpec.from_file(self.file_path)
         self.model: mujoco.MjModel = self.spec.compile()
 
-    def boxify_mesh(self, mesh_name: str, output_path: str, threshold: float = 0.75):
+    def boxify_mesh(self, mesh_name: str, output_path: str, threshold: float = 0.75, seed: int = 0):
         """
         Boxify a mesh in the MJCF file
 
         :param mesh_name: name of the mesh to be boxified
         :param output_path: path to save the cube
         :param threshold: concavity threshold for terminating the decomposition (0.01~1)
+        :param seed: random seed used for sampling
         """
         mesh_id = self.model.mesh(mesh_name).id
         mesh_spec = self.spec.meshes[mesh_id]
@@ -189,14 +190,15 @@ class MjcfBoxify(Boxify):
         mesh_path = mesh_spec.file
         if not os.path.isabs(mesh_path):
             mesh_path = os.path.join(mesh_dir, mesh_path)
-        boxify(mesh_path, output_path, threshold=threshold)
+        boxify(mesh_path, output_path, threshold=threshold, seed=seed)
 
-    def boxify_all_meshes(self, threshold: float = 0.75, visible: bool = True):
+    def boxify_all_meshes(self, threshold: float = 0.75, visible: bool = True, seed: int = 0):
         """
         Boxify all meshes in the MJCF file
 
         :param threshold: concavity threshold for terminating the decomposition (0.01~1)
         :param visible: whether the cubes should be visible
+        :param seed: random seed used for sampling, default = 0.
         """
         for body in self.spec.bodies:
             body: mujoco.MjsBody
@@ -204,7 +206,7 @@ class MjcfBoxify(Boxify):
                 if (geom.conaffinity != 0 or geom.contype != 0) and geom.type == mujoco.mjtGeom.mjGEOM_MESH:
                     mesh_name = geom.meshname
                     output_file = os.path.join(self.file_dir, f"{mesh_name}.obj")
-                    self.boxify_mesh(mesh_name, output_file, threshold=threshold)
+                    self.boxify_mesh(mesh_name, output_file, threshold=threshold, seed=seed)
                     origin_pos = geom.pos
                     origin_quat = geom.quat
                     for i, (cube_origin, cube_size) in enumerate(self.get_cubes(output_file)):
@@ -247,13 +249,14 @@ class UrdfBoxify(Boxify):
         self.robot: urdf.Robot = urdf.URDF.from_xml_file(file_path)
         self.tree = ET.parse(self.file_path)
 
-    def boxify_mesh(self, mesh_path: str, output_path: str, threshold: float = 0.75):
+    def boxify_mesh(self, mesh_path: str, output_path: str, threshold: float = 0.75, seed: int = 0):
         """
         Boxify a mesh in the URDF file
 
         :param mesh_path: path to the mesh to be boxified
         :param output_path: path to save the cube
         :param threshold: concavity threshold for terminating the decomposition (0.01~1)
+        :param seed: random seed used for sampling
         """
         if mesh_path.startswith("package://"):
             raise NotImplementedError("package:// is not supported yet")
@@ -261,14 +264,15 @@ class UrdfBoxify(Boxify):
             mesh_path = mesh_path[7:]
         if not os.path.isabs(mesh_path):
             mesh_path = os.path.join(self.file_dir, mesh_path)
-        boxify(mesh_path, output_path, threshold=threshold)
+        boxify(mesh_path, output_path, threshold=threshold, seed=seed)
 
-    def boxify_all_meshes(self, threshold: float = 0.75, from_visual: bool = True):
+    def boxify_all_meshes(self, threshold: float = 0.75, from_visual: bool = True, seed: int = 0):
         """
         Boxify all meshes in the URDF file
 
         :param threshold: concavity threshold for terminating the decomposition (0.01~1)
         :param from_visual: whether to boxify the visual or collision meshes
+        :param seed: random seed used for sampling, default = 0.
         """
         for link in self.robot.links:
             link: urdf.Link
@@ -278,7 +282,7 @@ class UrdfBoxify(Boxify):
                     mesh_file_path = geom.geometry.filename
                     mesh_name = os.path.splitext(os.path.basename(mesh_file_path))[0]
                     output_file = os.path.join(self.file_dir, f"{mesh_name}.obj")
-                    self.boxify_mesh(mesh_file_path, output_file, threshold=threshold)
+                    self.boxify_mesh(mesh_file_path, output_file, threshold=threshold, seed=seed)
                     origin = urdf.Pose(xyz=[0.0, 0.0, 0.0], rpy=[0.0, 0.0, 0.0]) \
                         if not hasattr(geom, "origin") or geom.origin is None else geom.origin
                     origin_rotation = Rotation.from_euler("xyz", origin.rpy)
