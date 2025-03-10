@@ -105,8 +105,17 @@ def main():
     else:
         raise NotImplementedError(f"Inertia source {args.inertiasource} is not supported yet.")
 
+    input_path = args.input
+    if not os.path.isabs(input_path):
+        input_path = os.path.join(os.getcwd(), input_path)
+    output_path = args.output
+    if not os.path.isabs(output_path):
+        output_path = os.path.join(os.getcwd(), output_path)
+    print(f"Input path: {input_path}")
+    print(f"Output path: {output_path}")
+
     if in_extension in [".usd", ".usda", ".usdc"]:
-        factory = UsdImporter(file_path=args.input,
+        factory = UsdImporter(file_path=input_path,
                               fixed_base=fixed_base,
                               with_physics=with_physics,
                               with_visual=with_visual,
@@ -115,7 +124,7 @@ def main():
                               default_rgba=default_rgba,
                               add_xform_for_each_geom=args.add_xform_for_each_geom)
     elif in_extension == ".urdf":
-        factory = UrdfImporter(file_path=args.input,
+        factory = UrdfImporter(file_path=input_path,
                                fixed_base=fixed_base,
                                with_physics=with_physics,
                                with_visual=with_visual,
@@ -123,7 +132,7 @@ def main():
                                inertia_source=inertia_source,
                                default_rgba=default_rgba)
     elif in_extension == ".xml":
-        factory = MjcfImporter(file_path=args.input,
+        factory = MjcfImporter(file_path=input_path,
                                fixed_base=fixed_base,
                                with_physics=with_physics,
                                with_visual=with_visual,
@@ -136,15 +145,15 @@ def main():
     factory.import_model()
 
     if out_extension in [".usd", ".usda", ".usdc"]:
-        output_usd_path = os.path.join(os.path.dirname(args.output), os.path.splitext(args.output)[0] + ".usda")
+        output_usd_path = os.path.join(os.path.dirname(output_path), os.path.splitext(output_path)[0] + ".usda")
         factory.save_tmp_model(usd_file_path=str(output_usd_path))
     elif out_extension == ".xml":
-        exporter = MjcfExporter(file_path=args.output,
+        exporter = MjcfExporter(file_path=output_path,
                                 factory=factory)
         exporter.build()
         exporter.export(keep_usd=keep_usd)
     elif out_extension == ".urdf":
-        exporter = UrdfExporter(file_path=args.output,
+        exporter = UrdfExporter(file_path=output_path,
                                 factory=factory,
                                 relative_to_ros_package=args.relative_to_ros_package)
         exporter.build()
