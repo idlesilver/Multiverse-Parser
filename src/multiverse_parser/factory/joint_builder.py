@@ -128,17 +128,17 @@ class JointAxis(Enum):
 
     @classmethod
     def from_array(cls, joint_axis: numpy.ndarray) -> Optional["JointAxis"]:
-        if numpy.allclose(joint_axis, [1, 0, 0]):
+        if numpy.allclose(joint_axis, [1, 0, 0], atol=1e-3):
             return JointAxis.X
-        elif numpy.allclose(joint_axis, [0, 1, 0]):
+        elif numpy.allclose(joint_axis, [0, 1, 0], atol=1e-3):
             return JointAxis.Y
-        elif numpy.allclose(joint_axis, [0, 0, 1]):
+        elif numpy.allclose(joint_axis, [0, 0, 1], atol=1e-3):
             return JointAxis.Z
-        elif numpy.allclose(joint_axis, [-1, 0, 0]):
+        elif numpy.allclose(joint_axis, [-1, 0, 0], atol=1e-3):
             return JointAxis.NEG_X
-        elif numpy.allclose(joint_axis, [0, -1, 0]):
+        elif numpy.allclose(joint_axis, [0, -1, 0], atol=1e-3):
             return JointAxis.NEG_Y
-        elif numpy.allclose(joint_axis, [0, 0, -1]):
+        elif numpy.allclose(joint_axis, [0, 0, -1], atol=1e-3):
             return JointAxis.NEG_Z
         else:
             return None

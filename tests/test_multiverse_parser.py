@@ -293,6 +293,13 @@ class UrdfToMjcfTestCase(MjcfExporterTestCase):
         self.validate_visual_collision(UrdfImporter, MjcfExporter, input_urdf_path,
                                        fixed_base=True, with_physics=False)
 
+    def test_urdf_to_mjcf_iCub(self):
+        input_urdf_path = os.path.join(self.resource_path, "input", "iCub", "iCub.urdf")
+        self.validate_visual_collision(UrdfImporter, MjcfExporter, input_urdf_path,
+                                       fixed_base=True, with_physics=True)
+        self.validate_visual_collision(UrdfImporter, MjcfExporter, input_urdf_path,
+                                       fixed_base=True, with_physics=False)
+
 
 class UsdToUrdfTestCase(UrdfExporterTestCase):
     output_dir = "test_usd_to_urdf"
@@ -367,6 +374,11 @@ class UrdfToUrdfTestCase(UrdfExporterTestCase):
                                        fixed_base=True, with_physics=True)
         self.validate_visual_collision(UrdfImporter, UrdfExporter, input_urdf_path,
                                        fixed_base=True, with_physics=False)
+
+    def test_urdf_to_urdf_iCub(self):
+        input_urdf_path = os.path.join(self.resource_path, "input", "iCub", "iCub.urdf")
+        self.validate_visual_collision(UrdfImporter, UrdfExporter, input_urdf_path,
+                                       fixed_base=True, with_physics=True)
 
 
 if __name__ == '__main__':
