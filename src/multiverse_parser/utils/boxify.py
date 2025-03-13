@@ -210,9 +210,9 @@ class MjcfBoxify(Boxify):
                     origin_pos = geom.pos
                     origin_quat = geom.quat
                     for i, (cube_origin, cube_size) in enumerate(self.get_cubes(output_file)):
-                        geom_name = f"{body.name}_cube_{i}"
+                        geom_name = f"{geom.name}_cube_{i}"
                         cube_size = [s * 0.5 for s in cube_size]
-                        cube_pos = cube_origin + origin_pos
+                        cube_pos = origin_pos + Rotation.from_quat(origin_quat, scalar_first=True).apply(cube_origin)
                         body.add_geom(
                             name=geom_name,
                             type=mujoco.mjtGeom.mjGEOM_BOX,
