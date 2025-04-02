@@ -182,6 +182,7 @@ class MeshBuilder:
         #     geom_subset.CreateIndicesAttr().Set(geom_subset_indices)
         #     UsdShade.MaterialBindingAPI.Apply(geom_subset.GetPrim())
 
+        UsdGeom.SetStageMetersPerUnit(self.stage, UsdGeom.LinearUnits.meters)
         self.stage.GetRootLayer().Save()
 
         return self.mesh
