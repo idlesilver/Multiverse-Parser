@@ -192,7 +192,7 @@ class Factory:
         print("Importing mesh from", mesh_file_path, "to", tmp_usd_mesh_file_path, "and", tmp_mesh_file_path, ".")
         mesh_file_path_clone = os.path.join(os.path.dirname(mesh_file_path),
                                             f"clone_{os.path.basename(mesh_file_path)}")
-        if mesh_file_extension in [".usd", ".usda", ".usdz"]:
+        if mesh_file_extension.lower() in [".usd", ".usda", ".usdz"]:
             os.makedirs(name=os.path.dirname(tmp_mesh_file_path), exist_ok=True)
             shutil.copyfile(mesh_file_path, tmp_mesh_file_path)
             if mesh_file_path != self.source_file_path:
@@ -200,13 +200,13 @@ class Factory:
             else:
                 shutil.copyfile(mesh_file_path, mesh_file_path_clone)
                 cmd = import_usd([mesh_file_path_clone], mesh_scale) + export_usd(tmp_usd_mesh_file_path, merge_mesh)
-        elif mesh_file_extension == ".obj":
+        elif mesh_file_extension.lower() == ".obj":
             cmd = import_obj([mesh_file_path], mesh_scale) + export_obj(tmp_mesh_file_path) + export_usd(
                 tmp_usd_mesh_file_path, merge_mesh)
-        elif mesh_file_extension == ".stl":
+        elif mesh_file_extension.lower() == ".stl":
             cmd = import_stl([mesh_file_path], mesh_scale) + export_stl(tmp_mesh_file_path) + export_usd(
                 tmp_usd_mesh_file_path, merge_mesh)
-        elif mesh_file_extension == ".dae":
+        elif mesh_file_extension.lower() == ".dae":
             cmd = import_dae([mesh_file_path], mesh_scale) + export_dae(tmp_mesh_file_path) + export_usd(
                 tmp_usd_mesh_file_path, merge_mesh)
         else:
@@ -244,24 +244,24 @@ class Factory:
                 shutil.copyfile(tmp_origin_mesh_file_path, out_mesh_file_path)
                 return
 
-        if in_mesh_file_extension in [".usd", ".usda", ".usdz"]:
+        if in_mesh_file_extension.lower() in [".usd", ".usda", ".usdz"]:
             cmd = import_usd([in_mesh_file_path], mesh_scale)
-        elif in_mesh_file_extension == ".obj":
+        elif in_mesh_file_extension.lower() == ".obj":
             cmd = import_obj([in_mesh_file_path], mesh_scale)
-        elif in_mesh_file_extension == ".stl":
+        elif in_mesh_file_extension.lower() == ".stl":
             cmd = import_stl([in_mesh_file_path], mesh_scale)
-        elif in_mesh_file_extension == ".dae":
+        elif in_mesh_file_extension.lower() == ".dae":
             cmd = import_dae([in_mesh_file_path], mesh_scale)
         else:
             raise ValueError(f"Unsupported file extension {in_mesh_file_extension}.")
 
-        if out_mesh_file_extension in [".usd", ".usda", ".usdz"]:
+        if out_mesh_file_extension.lower() in [".usd", ".usda", ".usdz"]:
             cmd += export_usd(out_mesh_file_path)
-        elif out_mesh_file_extension == ".obj":
+        elif out_mesh_file_extension.lower() == ".obj":
             cmd += export_obj(out_mesh_file_path)
-        elif out_mesh_file_extension == ".stl":
+        elif out_mesh_file_extension.lower() == ".stl":
             cmd += export_stl(out_mesh_file_path)
-        elif out_mesh_file_extension == ".dae":
+        elif out_mesh_file_extension.lower() == ".dae":
             cmd += export_dae(out_mesh_file_path)
         else:
             raise ValueError(f"Unsupported file extension {out_mesh_file_extension}.")
