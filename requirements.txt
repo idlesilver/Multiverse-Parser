@@ -1,15 +1,12 @@
+# USD
 pyside6
 pyopengl
-wheel
-cython
-markupsafe>=2.0.1
 jinja2
-pybind11
-urdf_parser_py
-mujoco==3.3.0
+
+# Multiverse Parser
 trimesh
 coacd
-numpy==1.26.4
-bpy
 pillow
 scipy
+urdf_parser_py
+mujoco<=3.3.0
