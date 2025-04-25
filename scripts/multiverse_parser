@@ -11,6 +11,7 @@ src_dir = os.path.abspath(os.path.join(current_dir, '..', 'src'))
 usd_dir = os.path.abspath(os.path.join(current_dir, '..', 'USD', 'lib', 'python'))
 sys.path.insert(0, src_dir)
 sys.path.insert(0, usd_dir)
+os.environ["PATH"] = os.path.abspath(os.path.join(current_dir, '..', 'ext', 'blender'))
 
 from multiverse_parser import InertiaSource
 from multiverse_parser import UrdfImporter, MjcfImporter, UsdImporter
