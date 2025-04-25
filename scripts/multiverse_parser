@@ -3,7 +3,14 @@
 import argparse
 import json
 import os
+import sys
 import numpy
+
+current_dir = os.path.dirname(__file__)
+src_dir = os.path.abspath(os.path.join(current_dir, '..', 'src'))
+usd_dir = os.path.abspath(os.path.join(current_dir, '..', 'USD', 'lib', 'python'))
+sys.path.insert(0, src_dir)
+sys.path.insert(0, usd_dir)
 
 from multiverse_parser import InertiaSource
 from multiverse_parser import UrdfImporter, MjcfImporter, UsdImporter

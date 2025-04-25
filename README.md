@@ -1,11 +1,35 @@
 # Multiverse Parser
 
-This module parses scene descriptions across various formats into each other using USD as the translation medium
+The **Multiverse Parser** module enables conversion between different scene description formats, using **USD** (Universal Scene Description) as a common translation medium.
+
+## Prerequisites
+
+- Python ≥ 3.10
+
+## Setup
+
+First, download or clone the repository:
+
+```bash
+git clone https://github.com/Multiverse-Framework/Multiverse-Parser.git --depth 1
+```
+
+Then, run the `setup.sh` script to download and link Blender automatically:
+
+```bash
+./Multiverse-Parser/setup.sh
+```
+
+To additionally build USD (optional), run:
+
+```bash
+./Multiverse-Parser/setup.sh --usd
+```
 
 ## Usage
 
 ```bash
-multiverse_parser --help
+./Multiverse-Parser/multiverse_parser --help
 ```
 
 ```bash
@@ -29,7 +53,3 @@ options:
   --collisionrgba COLLISIONRGBA [COLLISIONRGBA ...]
                         The color of the collision meshes, if they exist
 ```
-
-## Examples
-
-Go to `../../build/multiverse/modules/multiverse_parser` and run `ctest`. The scene graph from [`../../tests/multiverse_parser/input`](https://github.com/Multiverse-Framework/Multiverse/tree/ICRA-2024/multiverse/tests/multiverse_parser/input) will be translated in the `output` folder in [`../../tests/multiverse_parser`](https://github.com/Multiverse-Framework/Multiverse/tree/ICRA-2024/multiverse/tests/multiverse_parser).
