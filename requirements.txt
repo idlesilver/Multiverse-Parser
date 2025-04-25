@@ -1,6 +1,4 @@
 # Multiverse Parser
-trimesh
-coacd
 pillow
 scipy
 urdf_parser_py
