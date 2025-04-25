@@ -1,4 +1,5 @@
 # Multiverse Parser
+numpy
 pillow
 scipy
 urdf_parser_py
