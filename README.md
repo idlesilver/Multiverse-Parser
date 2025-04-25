@@ -21,7 +21,7 @@ First, download or clone the repository:
 git clone https://github.com/Multiverse-Framework/Multiverse-Parser.git --depth 1
 ```
 
-Then, run the `setup.sh` script to download and link Blender automatically:
+Then, run the [setup.sh](https://github.com/Multiverse-Framework/Multiverse-Parser/blob/main/setup.sh) script to download and link [Blender](https://www.blender.org/) automatically:
 
 ```bash
 ./Multiverse-Parser/setup.sh
