@@ -5,7 +5,7 @@ The **Multiverse Parser** module enables conversion between different scene desc
 ## Prerequisites
 
 - Python ≥ 3.10
-- Python packages listed in `requirements.txt`, which can be installed with:
+- Python packages listed in [requirements.txt](https://github.com/Multiverse-Framework/Multiverse-Parser/blob/main/requirements.txt), which can be installed with:
 
 ```bash
 pip install -r requirements.txt
