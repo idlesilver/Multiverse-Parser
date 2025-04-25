@@ -19,34 +19,34 @@ fi
 
 BUILD_DIR=$PWD/build
 USD_BUILD_DIR=$BUILD_DIR/USD
-if [ -d "$USD_BUILD_DIR" ]; then
+if [ ! -d "$USD_BUILD_DIR" ]; then
     PYTHON_EXECUTABLE=python3
-    # mkdir -p "$USD_BUILD_DIR"
-    # USD_PLUGIN_PATH=/media/giangnguyen/Storage/Multiverse-Knowledge/test $PYTHON_EXECUTABLE "$USD_SRC_DIR"/build_scripts/build_usd.py "$USD_BUILD_DIR" \
-    # --no-tests \
-    # --no-examples \
-    # --no-tutorials \
-    # --no-tools \
-    # --no-docs \
-    # --no-python-docs \
-    # --python \
-    # --prefer-speed-over-safety \
-    # --no-debug-python \
-    # --no-imaging \
-    # --no-ptex \
-    # --no-openvdb \
-    # --no-usdview \
-    # --no-embree \
-    # --no-openimageio \
-    # --no-opencolorio \
-    # --no-alembic \
-    # --no-hdf5 \
-    # --no-draco \
-    # --no-materialx \
-    # --no-onetbb \
-    # --no-usdValidation \
-    # --no-mayapy-tests \
-    # --no-animx-tests
+    mkdir -p "$USD_BUILD_DIR"
+    USD_PLUGIN_PATH=/media/giangnguyen/Storage/Multiverse-Knowledge/test $PYTHON_EXECUTABLE "$USD_SRC_DIR"/build_scripts/build_usd.py "$USD_BUILD_DIR" \
+    --no-tests \
+    --no-examples \
+    --no-tutorials \
+    --no-tools \
+    --no-docs \
+    --no-python-docs \
+    --python \
+    --prefer-speed-over-safety \
+    --no-debug-python \
+    --no-imaging \
+    --no-ptex \
+    --no-openvdb \
+    --no-usdview \
+    --no-embree \
+    --no-openimageio \
+    --no-opencolorio \
+    --no-alembic \
+    --no-hdf5 \
+    --no-draco \
+    --no-materialx \
+    --no-onetbb \
+    --no-usdValidation \
+    --no-mayapy-tests \
+    --no-animx-tests
 
     PATH=$CMAKE_DIR/bin:$PATH PYTHONPATH=$USD_BUILD_DIR/lib/python USD_SRC_DIR=$USD_SRC_DIR USD_BUILD_DIR=$USD_BUILD_DIR PYTHON_EXECUTABLE=$PYTHON_EXECUTABLE ./install.sh
 fi

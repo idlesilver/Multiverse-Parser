@@ -12,7 +12,7 @@ else
     
     # Loop through each folder in the directory
     for USD_PLUGIN in "$USD_SRC_DIR"/plugin/*; do
-        if [ -d "$USD_PLUGIN/schema.usda" ]; then
+        if [ -f "$USD_PLUGIN/schema.usda" ]; then
             # Execute your command within each folder
             (cd "$USD_PLUGIN" && "$USD_BUILD_DIR"/bin/usdGenSchema schema.usda)
         fi
@@ -29,23 +29,6 @@ else
         # Add the line to the file
         printf '\n%s' "$LINE_TO_ADD" >> "$USD_CMAKE_PATH"
     fi
-    
-    # Specify the file path
-    USD_CMAKE_PATH="$USD_SRC_DIR/plugin/CMakeLists.txt"
-    
-    # Loop through each folder in the directory
-    for USD_PLUGIN in "$USD_SRC_DIR"/plugin/*; do
-        if [ -d "$USD_PLUGIN/schema.usda" ]; then
-            # Specify the line to add
-            LINE_TO_ADD="add_subdirectory($(basename $USD_PLUGIN))"
-
-            # Check if the line already exists in the file
-            if ! grep -Fxq "$LINE_TO_ADD" "$USD_CMAKE_PATH"; then
-                # Add the line to the file
-                printf '\n%s' "$LINE_TO_ADD" >> "$USD_CMAKE_PATH"
-            fi
-        fi
-    done
     
     $PYTHON_EXECUTABLE "$USD_SRC_DIR"/build_scripts/build_usd.py "$USD_BUILD_DIR" \
     --no-tests \
