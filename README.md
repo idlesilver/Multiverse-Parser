@@ -27,7 +27,7 @@ Then, run the [setup.sh](https://github.com/Multiverse-Framework/Multiverse-Pars
 ./Multiverse-Parser/setup.sh
 ```
 
-To additionally build USD (optional), run:
+To additionally build [USD](https://openusd.org/release/index.html) (optional), run:
 
 ```bash
 ./Multiverse-Parser/setup.sh --usd
