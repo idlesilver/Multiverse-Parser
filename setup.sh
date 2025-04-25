@@ -22,7 +22,7 @@ USD_BUILD_DIR=$BUILD_DIR/USD
 if [ ! -d "$USD_BUILD_DIR" ]; then
     PYTHON_EXECUTABLE=python3
     mkdir -p "$USD_BUILD_DIR"
-    USD_PLUGIN_PATH=/media/giangnguyen/Storage/Multiverse-Knowledge/test $PYTHON_EXECUTABLE "$USD_SRC_DIR"/build_scripts/build_usd.py "$USD_BUILD_DIR" \
+    PATH=$CMAKE_DIR/bin:$PATH USD_PLUGIN_PATH=/media/giangnguyen/Storage/Multiverse-Knowledge/test $PYTHON_EXECUTABLE "$USD_SRC_DIR"/build_scripts/build_usd.py "$USD_BUILD_DIR" \
     --no-tests \
     --no-examples \
     --no-tutorials \
