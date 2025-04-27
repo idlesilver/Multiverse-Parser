@@ -1,11 +1,15 @@
 # Multiverse Parser
 
-The **Multiverse Parser** module enables conversion between different scene description formats, using **USD** (Universal Scene Description) as a common translation medium.
+The **Multiverse Parser** module provides seamless conversion between different scene description formats, using [**USD** (Universal Scene Description)](https://openusd.org/release/index.html) as a universal translation layer.
 
-## Prerequisites
+---
 
-- Python ≥ 3.10
-- Python packages listed in [requirements.txt](https://github.com/Multiverse-Framework/Multiverse-Parser/blob/main/requirements.txt), which can be installed with:
+## 📋 Prerequisites
+
+- **Python** ≥ 3.10
+- Python packages listed in [requirements.txt](https://github.com/Multiverse-Framework/Multiverse-Parser/blob/main/requirements.txt)
+
+Install the required packages:
 
 ```bash
 pip install -r requirements.txt
@@ -13,37 +17,81 @@ pip install -r requirements.txt
 
 ---
 
-## Setup
+## ⚙️ Setup
 
-First, download or clone the repository:
+First, clone the repository:
 
 ```bash
 git clone https://github.com/Multiverse-Framework/Multiverse-Parser.git --depth 1
 ```
 
-Then, run the [setup.sh](https://github.com/Multiverse-Framework/Multiverse-Parser/blob/main/setup.sh) script to download and link [Blender](https://www.blender.org/) automatically:
+Then, run the setup script to automatically download and link [**Blender**](https://www.blender.org/):
 
+**Linux:**
 ```bash
 ./Multiverse-Parser/setup.sh
 ```
 
-To additionally build [USD](https://openusd.org/release/index.html) (optional), run:
-
-```bash
-./Multiverse-Parser/setup.sh --usd
+**Windows:**
+```bat
+.\Multiverse-Parser\setup.bat
 ```
 
 ---
 
-## Usage
+### ✨ Optional: Rebuild USD
+
+To upgrade or rebuild USD:
+
+1. Install the additional Python dependencies:
+
+    ```bash
+    pip install pyside6 pyopengl jinja2
+    ```
+
+2. Run the setup script with the `--usd` flag:
+
+    **Linux:**
+    ```bash
+    ./Multiverse-Parser/setup.sh --usd
+    ```
+
+    **Windows:**
+    ```bat
+    .\Multiverse-Parser\setup.bat --usd
+    ```
+
+---
+
+## 🚀 Usage
+
+To view all available options:
+
+**Linux:**
 
 ```bash
-./Multiverse-Parser/multiverse_parser --help
+./Multiverse-Parser/scripts/multiverse_parser --help
 ```
 
+**Windows:**
+
+```bat
+.\Multiverse-Parser\scripts\multiverse_parser.cmd --help
+```
+
+Example output:
+
 ```bash
-usage: multiverse_parser [-h] --input INPUT --output OUTPUT [--physics | --no-physics] [--visual | --no-visual] [--collision | --no-collision]
-                         [--keepusd | --no-keepusd] [--collisionrgba COLLISIONRGBA [COLLISIONRGBA ...]]
+usage: multiverse_parser [-h] --input INPUT --output OUTPUT 
+                         [--fixed_base] 
+                         [--add_xform_for_each_geom] 
+                         [--relative_to_ros_package RELATIVE_TO_ROS_PACKAGE] 
+                         [--no-physics] 
+                         [--no-visual] 
+                         [--no-collision] 
+                         [--keepusd] 
+                         [--inertiasource INERTIASOURCE]
+                         [--defaultrgba DEFAULTRGBA [DEFAULTRGBA ...]]
 
 Multiverse parser
 
@@ -51,14 +99,17 @@ options:
   -h, --help            show this help message and exit
   --input INPUT         Import scene description as (URDF, MJCF, WORLD or USD)
   --output OUTPUT       Export scene description as (URDF, MJCF, WORLD or USD)
-  --physics, --no-physics
-                        Whether to include physics properties or not
-  --visual, --no-visual
-                        Whether to include visual meshes or not
-  --collision, --no-collision
-                        Whether to include collision meshes or not
-  --keepusd, --no-keepusd
-                        Whether to keep the USD file or not
-  --collisionrgba COLLISIONRGBA [COLLISIONRGBA ...]
-                        The color of the collision meshes, if they exist
+  --fixed_base          Set the base link as fixed
+  --add_xform_for_each_geom
+                        Add additional parent xform for each geom (only for input USD)
+  --relative_to_ros_package RELATIVE_TO_ROS_PACKAGE
+                        The path to the ROS package that contains the URDF file (only for output URDF)
+  --no-physics          Exclude the physics properties
+  --no-visual           Exclude the visual meshes
+  --no-collision        Exclude the collision meshes
+  --keepusd             Keep the temporary USD file after exporting
+  --inertiasource INERTIASOURCE
+                        Where to get the inertia from (from_src, from_visual_mesh or from_collision_mesh)
+  --defaultrgba DEFAULTRGBA [DEFAULTRGBA ...]
+                        The default color of the meshes
 ```

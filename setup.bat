@@ -52,7 +52,7 @@ if /i "%USD_ENABLED%"=="true" (
   set "BUILD_DIR=%CD%\build"
   set "USD_BUILD_DIR=!BUILD_DIR!\USD"
   
-  if exist "!USD_BUILD_DIR!" (
+  if not exist "!USD_BUILD_DIR!" (
     set "PYTHON_EXECUTABLE=python.exe"
 
     mkdir "!USD_BUILD_DIR!"
