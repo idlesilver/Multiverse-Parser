@@ -11,7 +11,12 @@ src_dir = os.path.abspath(os.path.join(current_dir, '..', 'src'))
 usd_dir = os.path.abspath(os.path.join(current_dir, '..', 'USD', 'lib', 'python'))
 sys.path.insert(0, src_dir)
 sys.path.insert(0, usd_dir)
+
 os.environ["PATH"] = os.path.abspath(os.path.join(current_dir, '..', 'ext', 'blender'))
+if os.name == 'nt':
+    os.environ["PATH"] += f";{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'bin'))}"
+    os.environ["PATH"] += f";{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'lib'))}"
+    os.environ["PATH"] += f";{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'plugin', 'usd'))}"
 
 from multiverse_parser import InertiaSource
 from multiverse_parser import UrdfImporter, MjcfImporter, UsdImporter
