@@ -52,10 +52,9 @@ if /i "%USD_ENABLED%"=="true" (
   set "BUILD_DIR=%CD%\build"
   set "USD_BUILD_DIR=!BUILD_DIR!\USD"
   
-  if not exist "!USD_BUILD_DIR!" (
+  if exist "!USD_BUILD_DIR!" (
     set "PYTHON_EXECUTABLE=python.exe"
-    
-    !PYTHON_EXECUTABLE! -m pip install pyside6 pyopengl jinja2
+
     mkdir "!USD_BUILD_DIR!"
     
     for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
@@ -91,9 +90,13 @@ if /i "%USD_ENABLED%"=="true" (
     set "PYTHONPATH=!USD_BUILD_DIR!\lib\python"
     call install.bat
     
-    xcopy /E /I /Y "!USD_BUILD_DIR!\bin\*" "%CD%\USD\bin\"
-    xcopy /E /I /Y "!USD_BUILD_DIR!\lib\*" "%CD%\USD\lib\"
-    xcopy /E /I /Y "!USD_BUILD_DIR!\plugin\*" "%CD%\USD\plugin\"
+    set "USD_BIN_DIR=%CD%\USD\windows"
+    if not exist "!USD_BIN_DIR!" (
+      mkdir "!USD_BIN_DIR!"
+    )
+    xcopy /E /I /Y "!USD_BUILD_DIR!\bin\*" "!USD_BIN_DIR!\bin\"
+    xcopy /E /I /Y "!USD_BUILD_DIR!\lib\*" "!USD_BIN_DIR!\lib\"
+    xcopy /E /I /Y "!USD_BUILD_DIR!\plugin\*" "!USD_BIN_DIR!\plugin\"
   )
 )
 

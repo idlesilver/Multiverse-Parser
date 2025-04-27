@@ -139,7 +139,11 @@ class Factory:
         Create temporary paths for the USD file and the mesh directory.
         :return: Tuple of the temporary USD file path and the mesh dir, material dir and texture dir paths.
         """
-        tmp_dir_path = os.path.join(f"/{self.tmp_file_name}",
+        tmp_dir_path = os.path.join(os.path.dirname(__file__),
+                                    "..",
+                                    "..",
+                                    "..",
+                                    self.tmp_file_name,
                                     "cache",
                                     "".join(random.choices(string.ascii_letters + string.digits, k=10)))
         tmp_usd_file_path = os.path.join(tmp_dir_path, f"{self.tmp_file_name}.usda")

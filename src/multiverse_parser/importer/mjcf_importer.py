@@ -476,6 +476,7 @@ class MjcfImporter(Factory):
                 tmp_mesh_file_path = os.path.join(self.tmp_mesh_dir_path,
                                                   file_ext,
                                                   f"{mesh_name}.{file_ext}")
+                print(f"Exporting mesh {mesh_name} to {tmp_mesh_file_path}...")
                 self.export_mesh(in_mesh_file_path=tmp_usd_mesh_file_path,
                                  out_mesh_file_path=tmp_mesh_file_path,
                                  execute_later=True)

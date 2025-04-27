@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import os
+
+
 clean_up_meshes_script = """
 if len(bpy.data.objects) == 0:
     raise ValueError("No object in the scene.")
@@ -30,6 +33,8 @@ for selected_object in bpy.data.objects:
 
 
 def export_usd(out_usd: str, merge_mesh: bool = False) -> str:
+    if os.name == "nt":
+        out_usd = out_usd.replace("\\", "\\\\")
     return f"""
 import os.path
 
@@ -47,6 +52,8 @@ bpy.ops.wm.usd_export(filepath='{out_usd}', selected_objects_only=True, overwrit
 
 
 def export_dae(out_dae: str) -> str:
+    if os.name == "nt":
+        out_dae = out_dae.replace("\\", "\\\\")
     return f"""
 import os.path
 import re
@@ -84,6 +91,8 @@ with open('{out_dae}', "w", encoding="utf-8") as output:
 
 
 def export_obj(out_obj: str) -> str:
+    if os.name == "nt":
+        out_obj = out_obj.replace("\\", "\\\\")
     return f"""
 import os.path
 import shutil
@@ -123,6 +132,8 @@ with open(out_mtl, "w") as file:
 
 
 def export_stl(out_stl: str) -> str:
+    if os.name == "nt":
+        out_stl = out_stl.replace("\\", "\\\\")
     return f"""
 import os.path
 
@@ -140,6 +151,8 @@ bpy.ops.wm.stl_export(filepath='{out_stl}',
 
 
 def export_fbx(out_fbx: str) -> str:
+    if os.name == "nt":
+        out_fbx = out_fbx.replace("\\", "\\\\")
     return f"""
 {clean_up_meshes_script}
 bpy.ops.export_scene.fbx(filepath='{out_fbx}', 
