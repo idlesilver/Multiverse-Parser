@@ -8,15 +8,20 @@ import numpy
 
 current_dir = os.path.dirname(__file__)
 src_dir = os.path.abspath(os.path.join(current_dir, '..', 'src'))
-usd_dir = os.path.abspath(os.path.join(current_dir, '..', 'USD', 'windows', 'lib', 'python'))
 sys.path.insert(0, src_dir)
-sys.path.insert(0, usd_dir)
 
 os.environ["PATH"] = os.path.abspath(os.path.join(current_dir, '..', 'ext', 'blender'))
 if os.name == 'nt':
+    usd_dir = os.path.abspath(os.path.join(current_dir, '..', 'USD', 'windows', 'lib', 'python'))
     os.environ["PATH"] += f";{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'windows', 'bin'))}"
     os.environ["PATH"] += f";{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'windows', 'lib'))}"
     os.environ["PATH"] += f";{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'windows', 'plugin', 'usd'))}"
+else:
+    usd_dir = os.path.abspath(os.path.join(current_dir, '..', 'USD', 'linux', 'lib', 'python'))
+    os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'linux', 'bin'))}"
+    os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'linux', 'lib'))}"
+    os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'linux', 'plugin', 'usd'))}"
+sys.path.insert(0, usd_dir)
 
 from multiverse_parser import InertiaSource
 from multiverse_parser import UrdfImporter, MjcfImporter, UsdImporter

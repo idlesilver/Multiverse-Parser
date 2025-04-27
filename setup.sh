@@ -58,7 +58,7 @@ if [ "$USD_ENABLED" = true ]; then
     if [ ! -d "$USD_BUILD_DIR" ]; then
         PYTHON_EXECUTABLE=python3
         mkdir -p "$USD_BUILD_DIR"
-        PATH=$CMAKE_DIR/bin:$PATH USD_PLUGIN_PATH=/media/giangnguyen/Storage/Multiverse-Knowledge/test $PYTHON_EXECUTABLE "$USD_SRC_DIR"/build_scripts/build_usd.py "$USD_BUILD_DIR" \
+        PATH=$CMAKE_DIR/bin:$PATH $PYTHON_EXECUTABLE "$USD_SRC_DIR"/build_scripts/build_usd.py "$USD_BUILD_DIR" \
         --no-tests \
         --no-examples \
         --no-tutorials \
@@ -86,8 +86,13 @@ if [ "$USD_ENABLED" = true ]; then
         
         PATH=$CMAKE_DIR/bin:$PATH PYTHONPATH=$USD_BUILD_DIR/lib/python USD_SRC_DIR=$USD_SRC_DIR USD_BUILD_DIR=$USD_BUILD_DIR PYTHON_EXECUTABLE=$PYTHON_EXECUTABLE ./install.sh
         
-        cp -rf "$USD_BUILD_DIR"/lib/* "$PWD"/USD/lib/
-        cp -rf "$USD_BUILD_DIR"/plugin/* "$PWD"/USD/plugin/
+        USD_BIN_DIR=$PWD/USD/linux
+        if [ ! -d "$USD_BIN_DIR" ]; then
+            mkdir -p "$USD_BIN_DIR/lib/"
+            mkdir -p "$USD_BIN_DIR/plugin/"
+        fi
+        cp -rf "$USD_BUILD_DIR"/lib/* "$USD_BIN_DIR"/lib/
+        cp -rf "$USD_BUILD_DIR"/plugin/* "$USD_BIN_DIR"/plugin/
     fi
 fi
 
