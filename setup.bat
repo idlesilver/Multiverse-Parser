@@ -26,7 +26,7 @@ if not exist "%ZIP_DIR%" (
   mkdir "%ZIP_DIR%"
   set "ZIP_FILE=7z2409-extra.7z"
   powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o %EXT_DIR%\!ZIP_FILE! https://www.7-zip.org/a/!ZIP_FILE!"
-  powershell -NoProfile -Command "tar -xf %EXT_DIR%\!ZIP_FILE! -C %ZIP_DIR%"
+  powershell -NoProfile -Command "bsdtar -xf %EXT_DIR%\!ZIP_FILE! -C %ZIP_DIR%"
   del "%EXT_DIR%\!ZIP_FILE!"
 )
 
