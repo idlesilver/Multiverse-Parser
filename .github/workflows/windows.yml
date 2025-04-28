@@ -39,7 +39,7 @@ jobs:
 
       - name: Configure environment paths
         run: |
-          echo "PATH=${{ github.workspace }}\\ext\\blender;${{ github.workspace }}\\USD\\windows\\lib\\python;${{ github.workspace }}\\USD\\windows\\plugin\\usd;$env:PATH" >> $env:GITHUB_ENV
+          echo "PATH=${{ github.workspace }}\\ext\\blender;${{ github.workspace }}\\USD\\windows\\bin;${{ github.workspace }}\\USD\\windows\\lib;${{ github.workspace }}\\USD\\windows\\plugin\\usd;$env:PATH" >> $env:GITHUB_ENV
           echo "PYTHONPATH=${{ github.workspace }}\\USD\\windows\\lib\\python;${{ github.workspace }}\\src" >> $env:GITHUB_ENV
         shell: pwsh
 
