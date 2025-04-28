@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "PATH is: $env:PATH"
           echo "PYTHONPATH is: $env:PYTHONPATH"
-          pytest -v --cov --cov-branch --cov-report=term --cov-report=xml tests/
+          pytest -v --cov --cov-branch --cov-report=term --cov-report=xml --cov-omit="tests/*,ext/*,USD/*" tests/
         shell: pwsh
 
       - name: Upload coverage report to Codecov
