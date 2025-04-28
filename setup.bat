@@ -20,6 +20,7 @@ goto parse_args
 :after_parse
 
 set "EXT_DIR=%CD%\ext"
+mkdir -p "%EXT_DIR%"
 set "ZIP_DIR=%EXT_DIR%\7zip"
 set "ZIP_EXECUTABLE=%ZIP_DIR%\7za.exe"
 if not exist "%ZIP_DIR%" (
