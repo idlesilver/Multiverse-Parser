@@ -47,6 +47,8 @@ if {merge_mesh}:
     if len(bpy.context.selected_objects) > 1:
         bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
         bpy.ops.object.join()
+out_usd_dir = os.path.dirname('{out_usd}')
+os.makedirs(out_usd_dir, exist_ok=True)
 bpy.ops.wm.usd_export(filepath='{out_usd}', selected_objects_only=True, overwrite_textures=True, root_prim_path='')
 """
 
@@ -60,12 +62,13 @@ import re
 import shutil
 
 {clean_up_meshes_script}
+out_dae_dir = os.path.dirname('{out_dae}')
+os.makedirs(name=out_dae_dir, exist_ok=True)
+os.makedirs(name=os.path.join(out_dae_dir, "..", "..", "textures"), exist_ok=True)
 bpy.ops.wm.collada_export(filepath='{out_dae}', 
                           use_texture_copies=True, 
                           export_global_forward_selection="Y", 
                           export_global_up_selection="Z")
-out_dae_dir = os.path.dirname('{out_dae}')
-os.makedirs(name=os.path.join(out_dae_dir, "..", "..", "textures"), exist_ok=True)
 
 with open('{out_dae}', encoding="utf-8") as file:
     file_contents = file.read()
@@ -100,8 +103,9 @@ from PIL import Image
 
 {clean_up_meshes_script}
 out_obj_dir = os.path.dirname('{out_obj}')
+os.makedirs(name=out_obj_dir, exist_ok=True)
 os.makedirs(name=os.path.join(out_obj_dir, "..", "..", "textures"), exist_ok=True)
-    
+
 bpy.ops.wm.obj_export(filepath='{out_obj}', 
                       export_selected_objects=False, 
                       forward_axis="Y", 
@@ -138,7 +142,8 @@ def export_stl(out_stl: str) -> str:
 import os.path
 
 {clean_up_meshes_script}
-os.makedirs(name=os.path.dirname('{out_stl}'), exist_ok=True)
+out_stl_dir = os.path.dirname('{out_stl}')
+os.makedirs(name=out_stl_dir, exist_ok=True)
 selected_object = bpy.context.object
 if len([vertex for obj in bpy.data.objects for vertex in obj.data.vertices]) > 1000:
     selected_object.modifiers.new("Weld", "WELD")
