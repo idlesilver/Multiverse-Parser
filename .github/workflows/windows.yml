@@ -30,20 +30,12 @@ jobs:
           pip install -r tests/requirements.txt
         shell: cmd
 
-      - name: Configure environment paths
-        run: |
-          echo "PATH=${{ github.workspace }}\\ext\\blender;${{ github.workspace }}\\USD\\windows\\lib\\python;${{ github.workspace }}\\USD\\windows\\plugin\\usd;$env:PATH" >> $env:GITHUB_ENV
-          echo "PYTHONPATH=${{ github.workspace }}\\USD\\windows\\lib\\python;${{ github.workspace }}\\src" >> $env:GITHUB_ENV
-        shell: pwsh
-
       - name: Run tests with coverage
         run: |
-          echo "PATH is: $env:PATH"
-          echo "PYTHONPATH is: $env:PYTHONPATH"
-          $env:PATH="$env:PATH"
-          $env:PYTHONPATH="$env:PYTHONPATH"
+          set "PATH=%PATH%;%CD%\ext\blender;%CD%\USD\windows\lib\python;%CD%\USD\windows\plugin\usd"
+          set "PYTHONPATH=%CD%\USD\windows\lib\python;%CD%\src"
           pytest -v --cov --cov-branch --cov-report=term --cov-report=xml tests/
-        shell: pwsh
+        shell: cmd
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
