@@ -1,5 +1,4 @@
 requests
-zipfile
 tqdm
 plotly
 pytest
