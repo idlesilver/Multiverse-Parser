@@ -25,7 +25,7 @@ set "ZIP_FILE=7z2409-extra.7z"
 set "ZIP_EXECUTABLE=%ZIP_DIR%\7za.exe"
 if not exist "%ZIP_DIR%" (
   mkdir "%ZIP_DIR%"
-  powershell -NoProfile -Command "C:\Windows\System32\curl.exe -L -o %EXT_DIR%\%ZIP_FILE% https://www.7-zip.org/a/%ZIP_FILE%"
+  powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl -L -o %EXT_DIR%\%ZIP_FILE% https://www.7-zip.org/a/%ZIP_FILE%"
   powershell -NoProfile -Command "tar -xf %EXT_DIR%\%ZIP_FILE% -C %ZIP_DIR%"
   del "%EXT_DIR%\%ZIP_FILE%"
 )
@@ -34,7 +34,7 @@ set "BLENDER_DIR=%EXT_DIR%\blender"
 if not exist "%BLENDER_DIR%" (
   set "BLENDER=blender-4.4.1-windows-x64"
   set "BLENDER_ZIP_FILE=!BLENDER!.zip"
-  powershell -NoProfile -Command "C:\Windows\System32\curl.exe -L -o '%EXT_DIR%\!BLENDER_ZIP_FILE!' https://download.blender.org/release/Blender4.4/!BLENDER_ZIP_FILE!"
+  powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl -L -o '%EXT_DIR%\!BLENDER_ZIP_FILE!' https://download.blender.org/release/Blender4.4/!BLENDER_ZIP_FILE!"
   powershell -NoProfile -Command "%ZIP_EXECUTABLE% x '%EXT_DIR%\!BLENDER_ZIP_FILE!' -o'%EXT_DIR%'"
   move "%EXT_DIR%\!BLENDER!" "%EXT_DIR%\blender"
   del "%EXT_DIR%\!BLENDER_ZIP_FILE!"
