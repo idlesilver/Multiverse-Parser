@@ -2,3 +2,6 @@ requests
 zipfile
 tqdm
 plotly
+pytest
+coverage
+pytest-cov
