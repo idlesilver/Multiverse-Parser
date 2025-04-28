@@ -18,7 +18,6 @@ if os.name == 'nt':
     os.environ["PATH"] += f";{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'windows', 'plugin', 'usd'))}"
 else:
     usd_dir = os.path.abspath(os.path.join(current_dir, '..', 'USD', 'linux', 'lib', 'python'))
-    os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'linux', 'bin'))}"
     os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'linux', 'lib'))}"
     os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', 'USD', 'linux', 'plugin', 'usd'))}"
 sys.path.insert(0, usd_dir)
