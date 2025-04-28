@@ -28,6 +28,9 @@ jobs:
           pip install -r requirements.txt
           pip install -r tests/requirements.txt
 
+      - name: Test multiverse_parser
+        run: scripts/multiverse_parser --help
+
       - name: Configure environment paths
         run: |
           echo "PATH=$PWD/ext/blender:$PWD/USD/linux/lib/python:$PWD/USD/linux/plugin/usd:$PATH" >> $GITHUB_ENV

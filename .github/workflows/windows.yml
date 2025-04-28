@@ -30,12 +30,21 @@ jobs:
           pip install -r tests/requirements.txt
         shell: cmd
 
+      - name: Test multiverse_parser
+        run: scripts/multiverse_parser.cmd --help
+
+      - name: Configure environment paths
+        run: |
+          echo "PATH=${{ github.workspace }}\\ext\\blender;${{ github.workspace }}\\USD\\windows\\lib\\python;${{ github.workspace }}\\USD\\windows\\plugin\\usd;$env:PATH" >> $env:GITHUB_ENV
+          echo "PYTHONPATH=${{ github.workspace }}\\USD\\windows\\lib\\python;${{ github.workspace }}\\src" >> $env:GITHUB_ENV
+        shell: pwsh
+
       - name: Run tests with coverage
         run: |
-          set "PATH=%PATH%;%CD%\ext\blender;%CD%\USD\windows\lib\python;%CD%\USD\windows\plugin\usd"
-          set "PYTHONPATH=%CD%\USD\windows\lib\python;%CD%\src"
+          echo "PATH is: $env:PATH"
+          echo "PYTHONPATH is: $env:PYTHONPATH"
           pytest -v --cov --cov-branch --cov-report=term --cov-report=xml tests/
-        shell: cmd
+        shell: pwsh
 
       - name: Upload coverage report to Codecov
         uses: codecov/codecov-action@v4
