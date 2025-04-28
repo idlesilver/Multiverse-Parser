@@ -11,7 +11,7 @@ The **Multiverse Parser** module provides seamless conversion between different 
 
 ## 📋 Prerequisites
 
-- **Python** ≥ 3.10
+- **Python** ≥ 3.10 (Linux), 3.12 (Windows)
 - Python packages listed in [requirements.txt](https://github.com/Multiverse-Framework/Multiverse-Parser/blob/main/requirements.txt)
 
 Install the required packages:
