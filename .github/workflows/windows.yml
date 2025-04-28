@@ -40,6 +40,8 @@ jobs:
         run: |
           echo "PATH is: $env:PATH"
           echo "PYTHONPATH is: $env:PYTHONPATH"
+          $env:PATH="$env:PATH"
+          $env:PYTHONPATH="$env:PYTHONPATH"
           pytest -v --cov --cov-branch --cov-report=term --cov-report=xml tests/
         shell: pwsh
 
