@@ -468,7 +468,39 @@ class FactoryTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         tracemalloc.start()
-        cls.resource_path = os.path.join(os.path.dirname(__file__), "resources")
+        resource_path = os.path.join(os.path.dirname(__file__), "resources")
+        if not os.path.exists(resource_path):
+            print(f"Resource path {resource_path} does not exist, creating one...")
+            os.makedirs(resource_path)
+            import requests
+            import zipfile
+            import io
+            from tqdm import tqdm
+            file_name = "input.zip"
+            url = f"https://nc.uni-bremen.de/index.php/s/k7Jy4TpoG2qNisw/download/{file_name}"
+            response = requests.get(url, stream=True)
+            response.raise_for_status()  # raise exception if download failed
+            total_size = int(response.headers.get('content-length', 0))
+            buffer = io.BytesIO()
+            with tqdm(
+                    desc="Downloading resources...",
+                    total=total_size,
+                    unit='B',
+                    unit_scale=True,
+                    unit_divisor=1024,
+            ) as bar:
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        buffer.write(chunk)
+                        bar.update(len(chunk))
+            buffer.seek(0)
+            with zipfile.ZipFile(buffer) as zip_ref:
+                zip_ref.extractall(resource_path)
+            print(f"Downloaded resources in {resource_path}")
+        cls.resource_path = resource_path
+
+    def test_check_resource_path(self):
+        self.assertTrue(os.path.exists(self.resource_path))
 
     def test_diagonal_inertia(self):
         inertia_tensor = numpy.diag([random.uniform(0.1, 1.0) for _ in range(3)])
