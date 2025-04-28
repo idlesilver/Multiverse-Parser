@@ -1,5 +1,9 @@
 # Multiverse Parser
 
+[![Python Tests with Coverage (Ubuntu 22.04)](https://github.com/Multiverse-Framework/Multiverse-Parser/actions/workflows/ubuntu-22.04.yml/badge.svg)](https://github.com/Multiverse-Framework/Multiverse-Parser/actions/workflows/ubuntu-22.04.yml)
+[![Python Tests with Coverage  (Ubuntu 24.04)](https://github.com/Multiverse-Framework/Multiverse-Parser/actions/workflows/ubuntu-24.04.yml/badge.svg)](https://github.com/Multiverse-Framework/Multiverse-Parser/actions/workflows/ubuntu-24.04.yml)
+[![codecov](https://codecov.io/gh/Multiverse-Framework/Multiverse-Parser/graph/badge.svg?token=QYFC2RFVLG)](https://codecov.io/gh/Multiverse-Framework/Multiverse-Parser)
+
 The **Multiverse Parser** module provides seamless conversion between different scene description formats, using [**USD** (Universal Scene Description)](https://openusd.org/release/index.html) as a universal translation layer.
 
 ---
