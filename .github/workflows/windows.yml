@@ -30,6 +30,10 @@ jobs:
           pip install -r tests/requirements.txt
         shell: cmd
 
+      - name: Build USD
+        run: setup.bat --usd
+        shell: cmd
+
       - name: Test multiverse_parser
         run: scripts/multiverse_parser.cmd --help
 
@@ -43,7 +47,7 @@ jobs:
         run: |
           echo "PATH is: $env:PATH"
           echo "PYTHONPATH is: $env:PYTHONPATH"
-          pytest -v --cov=src --cov-branch --cov-report=term --cov-report=xml tests/
+          pytest -v --cov=multiverse_parser --cov-branch --cov-report=term --cov-report=xml tests/
         shell: pwsh
 
       - name: Upload coverage report to Codecov
