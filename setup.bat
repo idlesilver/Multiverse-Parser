@@ -20,15 +20,14 @@ goto parse_args
 :after_parse
 
 set "EXT_DIR=%CD%\ext"
-mkdir -p "%EXT_DIR%"
 set "ZIP_DIR=%EXT_DIR%\7zip"
 set "ZIP_EXECUTABLE=%ZIP_DIR%\7za.exe"
 if not exist "%ZIP_DIR%" (
+  mkdir "%ZIP_DIR%"
   set "ZIP_FILE=7z2409-extra.7z"
   powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o %EXT_DIR%\7zr.exe https://www.7-zip.org/a/7zr.exe"
   powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o %EXT_DIR%\!ZIP_FILE! https://www.7-zip.org/a/!ZIP_FILE!"
-  powershell -NoProfile -Command "%EXT_DIR%\7zr.exe x '%EXT_DIR%\!ZIP_FILE!' -o'%EXT_DIR%'"
-  move "%EXT_DIR%\7z2409-extra" "%ZIP_DIR%"
+  powershell -NoProfile -Command "%EXT_DIR%\7zr.exe x '%EXT_DIR%\!ZIP_FILE!' -o'%ZIP_DIR%'"
   del "%EXT_DIR%\!ZIP_FILE!"
   del "%EXT_DIR%\7zr.exe"
 )
