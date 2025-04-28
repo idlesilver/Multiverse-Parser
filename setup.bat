@@ -21,13 +21,13 @@ goto parse_args
 
 set "EXT_DIR=%CD%\ext"
 set "ZIP_DIR=%EXT_DIR%\7zip"
-set "ZIP_FILE=7z2409-extra.7z"
 set "ZIP_EXECUTABLE=%ZIP_DIR%\7za.exe"
 if not exist "%ZIP_DIR%" (
   mkdir "%ZIP_DIR%"
-  powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o %EXT_DIR%\%ZIP_FILE% https://www.7-zip.org/a/%ZIP_FILE%"
-  powershell -NoProfile -Command "tar -xf %EXT_DIR%\%ZIP_FILE% -C %ZIP_DIR%"
-  del "%EXT_DIR%\%ZIP_FILE%"
+  set "ZIP_FILE=7z2409-extra.7z"
+  powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o %EXT_DIR%\!ZIP_FILE! https://www.7-zip.org/a/!ZIP_FILE!"
+  powershell -NoProfile -Command "tar -xf %EXT_DIR%\!ZIP_FILE! -C %ZIP_DIR%"
+  del "%EXT_DIR%\!ZIP_FILE!"
 )
 
 set "BLENDER_DIR=%EXT_DIR%\blender"
