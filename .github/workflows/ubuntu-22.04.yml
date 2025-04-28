@@ -32,6 +32,8 @@ jobs:
 
       - name: Run tests with coverage
         run: |
+          echo $PATH
+          echo $PYTHONPATH
           coverage run -m pytest tests/
           coverage report
           coverage xml  # generate coverage.xml for Codecov
