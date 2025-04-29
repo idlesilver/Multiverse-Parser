@@ -30,12 +30,6 @@ jobs:
           pip install -r tests/requirements.txt
         shell: cmd
 
-      - name: Build USD
-        run: |
-          pip install pyside6 pyopengl jinja2
-          setup.bat --usd
-        shell: cmd
-
       - name: Test multiverse_parser
         run: scripts/multiverse_parser.cmd --help
 
