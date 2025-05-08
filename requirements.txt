@@ -3,4 +3,4 @@ numpy
 pillow
 scipy
 urdf_parser_py
-mujoco<=3.3.0
+mujoco

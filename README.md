@@ -118,3 +118,22 @@ options:
   --defaultrgba DEFAULTRGBA [DEFAULTRGBA ...]
                         The default color of the meshes
 ```
+
+---
+
+## 🐍 For Python Users
+
+If you want to use `multiverse_parser` programmatically in Python, you can install it as a local Python package using a symbolic link (editable mode):
+
+```bash
+pip install -e .
+```
+
+This allows you to make changes to the source code and immediately reflect them without reinstalling.
+
+You can then test it in a Python shell:
+
+```python
+import multiverse_parser
+from pxr import UsdUrdf, UsdMujoco
+```
