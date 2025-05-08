@@ -3,4 +3,5 @@ numpy
 pillow
 scipy
 urdf_parser_py
+rospkg
 mujoco

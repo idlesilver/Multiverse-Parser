@@ -24,7 +24,8 @@ class Configuration:
     Configuration class for the Multiverse Parser.
     """
     model_name: str = ""
-    fixed_base: bool = True
+    root_name: Optional[str] = None
+    fixed_base: Optional[bool] = None
     with_physics: bool = True
     with_visual: bool = True
     with_collision: bool = True

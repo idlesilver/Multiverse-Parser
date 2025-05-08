@@ -69,9 +69,10 @@ class MultiverseImporterTestCase(MultiverseParserTestCase):
         usd_file_path = factory.import_model()
         self.assertTrue(os.path.exists(usd_file_path))
 
-        stage = Usd.Stage.Open(usd_file_path)
-        default_prim = stage.GetDefaultPrim()
-        self.assertEqual(default_prim.GetName(), model_name)
+        if factory.config.root_name is not None:
+            stage = Usd.Stage.Open(usd_file_path)
+            default_prim = stage.GetDefaultPrim()
+            self.assertEqual(default_prim.GetName(), factory.config.root_name)
 
         factory.save_tmp_model(usd_file_path=model_path)
         self.assertTrue(os.path.exists(model_path))
@@ -188,7 +189,8 @@ class UrdfExporterTestCase(MultiverseExporterTestCase):
 
         for joint in urdf_model.joints:
             if not config.with_physics:
-                self.assertEqual(joint.type, "fixed")
+                if config.fixed_base:
+                    self.assertEqual(joint.type, "fixed")
 
 
 class UsdToUsdTestCase(MultiverseImporterTestCase):
