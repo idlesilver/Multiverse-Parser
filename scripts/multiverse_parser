@@ -35,6 +35,12 @@ def main():
     )
     parser.set_defaults(fixed_base=False)
     parser.add_argument(
+        "--root_name",
+        type=str,
+        required=False,
+        help="The name of the root body",
+    )
+    parser.add_argument(
         "--add_xform_for_each_geom",
         action='store_true',
         help="Add additional parent xform for each geom (only for input USD)",
@@ -92,6 +98,7 @@ def main():
     args = parser.parse_args()
 
     fixed_base = args.fixed_base
+    root_name = args.root_name
     with_physics = args.physics
     with_visual = args.visual
     with_collision = args.collision
@@ -122,6 +129,7 @@ def main():
     if in_extension in [".usd", ".usda", ".usdc"]:
         factory = UsdImporter(file_path=input_path,
                               fixed_base=fixed_base,
+                              root_name=root_name,
                               with_physics=with_physics,
                               with_visual=with_visual,
                               with_collision=with_collision,
@@ -131,14 +139,18 @@ def main():
     elif in_extension == ".urdf":
         factory = UrdfImporter(file_path=input_path,
                                fixed_base=fixed_base,
+                               root_name=root_name,
                                with_physics=with_physics,
                                with_visual=with_visual,
                                with_collision=with_collision,
                                inertia_source=inertia_source,
                                default_rgba=default_rgba)
     elif in_extension == ".xml":
+        if root_name is None:
+            root_name = "world"
         factory = MjcfImporter(file_path=input_path,
                                fixed_base=fixed_base,
+                               root_name=root_name,
                                with_physics=with_physics,
                                with_visual=with_visual,
                                with_collision=with_collision,

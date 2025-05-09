@@ -87,16 +87,8 @@ To view all available options:
 Example output:
 
 ```bash
-usage: multiverse_parser [-h] --input INPUT --output OUTPUT 
-                         [--fixed_base] 
-                         [--add_xform_for_each_geom] 
-                         [--relative_to_ros_package RELATIVE_TO_ROS_PACKAGE] 
-                         [--no-physics] 
-                         [--no-visual] 
-                         [--no-collision] 
-                         [--keepusd] 
-                         [--inertiasource INERTIASOURCE]
-                         [--defaultrgba DEFAULTRGBA [DEFAULTRGBA ...]]
+usage: multiverse_parser [-h] --input INPUT --output OUTPUT [--fixed_base] [--root_name ROOT_NAME] [--add_xform_for_each_geom] [--relative_to_ros_package RELATIVE_TO_ROS_PACKAGE] [--no-physics] [--no-visual]
+                         [--no-collision] [--keepusd] [--inertiasource INERTIASOURCE] [--defaultrgba DEFAULTRGBA [DEFAULTRGBA ...]]
 
 Multiverse parser
 
@@ -105,6 +97,8 @@ options:
   --input INPUT         Import scene description as (URDF, MJCF, WORLD or USD)
   --output OUTPUT       Export scene description as (URDF, MJCF, WORLD or USD)
   --fixed_base          Set the base link as fixed
+  --root_name ROOT_NAME
+                        The name of the root body
   --add_xform_for_each_geom
                         Add additional parent xform for each geom (only for input USD)
   --relative_to_ros_package RELATIVE_TO_ROS_PACKAGE
@@ -117,6 +111,7 @@ options:
                         Where to get the inertia from (from_src, from_visual_mesh or from_collision_mesh)
   --defaultrgba DEFAULTRGBA [DEFAULTRGBA ...]
                         The default color of the meshes
+
 ```
 
 ---
