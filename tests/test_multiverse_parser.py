@@ -216,7 +216,7 @@ class UsdToUsdTestCase(MultiverseImporterTestCase):
     def test_usd_to_usd_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
         self.validate_visual_collision(UsdImporter, input_usd_path, fixed_base=True, with_physics=True,
-                                       add_xform_for_each_geom=True)
+                                       add_xform_for_each_geom=True, root_name="SM_Esstisch")
         self.validate_visual_collision(UsdImporter, input_usd_path, fixed_base=True, with_physics=False,
                                        add_xform_for_each_geom=True)
 
@@ -285,7 +285,7 @@ class UsdToMjcfTestCase(MjcfExporterTestCase):
     def test_usd_to_mjcf_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
         self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="SM_Esstisch")
         self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
                                        fixed_base=True, with_physics=False)
 
@@ -343,9 +343,9 @@ class UrdfToMjcfTestCase(MjcfExporterTestCase):
     def test_urdf_to_mjcf_ur5e(self):
         input_urdf_path = os.path.join(self.resource_path, "input", "ur5e", "urdf", "ur5e.urdf")
         self.validate_visual_collision(UrdfImporter, MjcfExporter, input_urdf_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="ur5e")
         self.validate_visual_collision(UrdfImporter, MjcfExporter, input_urdf_path,
-                                       fixed_base=True, with_physics=False)
+                                       fixed_base=True, with_physics=False, root_name="ur5e")
 
     def test_urdf_to_mjcf_tiago_dual(self):
         input_urdf_path = os.path.join(self.resource_path, "input", "tiago_dual", "urdf", "tiago_dual.urdf")
@@ -375,7 +375,7 @@ class UsdToUrdfTestCase(UrdfExporterTestCase):
     def test_usd_to_urdf_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
         self.validate_visual_collision(UsdImporter, UrdfExporter, input_usd_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="SM_Esstisch")
         self.validate_visual_collision(UsdImporter, UrdfExporter, input_usd_path,
                                        fixed_base=True, with_physics=False)
 
@@ -426,9 +426,9 @@ class UrdfToUrdfTestCase(UrdfExporterTestCase):
     def test_urdf_to_urdf_ur5e(self):
         input_urdf_path = os.path.join(self.resource_path, "input", "ur5e", "urdf", "ur5e.urdf")
         self.validate_visual_collision(UrdfImporter, UrdfExporter, input_urdf_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="ur5e")
         self.validate_visual_collision(UrdfImporter, UrdfExporter, input_urdf_path,
-                                       fixed_base=True, with_physics=False)
+                                       fixed_base=True, with_physics=False, root_name="ur5e")
 
     def test_urdf_to_mjcf_tiago_dual(self):
         input_urdf_path = os.path.join(self.resource_path, "input", "tiago_dual", "urdf", "tiago_dual.urdf")
