@@ -97,6 +97,7 @@ class UrdfImporter(Factory):
             with_physics: bool,
             with_visual: bool,
             with_collision: bool,
+            root_name: Optional[str] = None,
             inertia_source: InertiaSource = InertiaSource.FROM_SRC,
             default_rgba: Optional[numpy.ndarray] = None,
     ) -> None:
@@ -110,6 +111,7 @@ class UrdfImporter(Factory):
         super().__init__(file_path=file_path, config=Configuration(
             model_name=model_name,
             fixed_base=fixed_base,
+            root_name=root_name,
             with_physics=with_physics,
             with_visual=with_visual,
             with_collision=with_collision,

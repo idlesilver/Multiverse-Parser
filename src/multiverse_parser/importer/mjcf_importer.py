@@ -115,10 +115,9 @@ class MjcfImporter(Factory):
                 body = self.mj_model.body(body_id)
                 if self.config.root_name == body.name:
                     start_body_idx = body_id
-                    parent_body_id = self.mj_model.body(body_id).parent
-                    for child_body_id in range(start_body_idx, end_body_idx):
-                        parent_body = self.mj_model.body(child_body_id)
-                        if parent_body.id == parent_body_id:
+                    parent_body_id = self.mj_model.body(body_id).parentid[0]
+                    for child_body_id in range(start_body_idx + 1, end_body_idx):
+                        if self.mj_model.body(child_body_id).parentid[0] == parent_body_id:
                             end_body_idx = child_body_id
                             break
                     break
@@ -174,14 +173,11 @@ class MjcfImporter(Factory):
                                                        body_id=mj_body.id)
         else:
             parent_body_name = get_body_name(parent_mj_body)
-            if self._config.with_physics and mj_body.jntnum[0] > 0:
-                body_builder = self.world_builder.add_body(body_name=body_name,
-                                                           parent_body_name=self.config.root_name,
-                                                           body_id=mj_body.id)
-            else:
-                body_builder = self.world_builder.add_body(body_name=body_name,
-                                                           parent_body_name=parent_body_name,
-                                                           body_id=mj_body.id)
+            if parent_body_name == "world" or self._config.with_physics and mj_body.jntnum[0] > 0:
+                parent_body_name = self.config.root_name
+            body_builder = self.world_builder.add_body(body_name=body_name,
+                                                       parent_body_name=parent_body_name,
+                                                       body_id=mj_body.id)
 
             relative_to_body_builder = self.world_builder.get_body_builder(body_name=parent_body_name)
             relative_to_xform = relative_to_body_builder.xform
@@ -551,6 +547,8 @@ class MjcfImporter(Factory):
                     equality_name = "Equality_" + str(equality_id)
                 joint1_id = equality.obj1id[0]
                 joint2_id = equality.obj2id[0]
+                if joint1_id not in self._joint_builders or joint2_id not in self._joint_builders:
+                    continue
                 joint1_path = self._joint_builders[joint1_id].joint.GetPath()
                 joint2_path = self._joint_builders[joint2_id].joint.GetPath()
                 mujoco_equality_joint = UsdMujoco.MujocoEqualityJoint.Define(self.world_builder.stage,
