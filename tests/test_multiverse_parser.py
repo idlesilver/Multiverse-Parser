@@ -64,14 +64,16 @@ class MultiverseParserTestCase(unittest.TestCase):
 class MultiverseImporterTestCase(MultiverseParserTestCase):
     def validate_output(self, factory, model_name: str, model_path: str):
         factory.config.default_rgba = numpy.array([0.9, 0.9, 0.9, 1.0])
-        self.assertEqual(factory._config.model_name, model_name)
+        if factory.config.root_name == "world":
+            self.assertEqual(factory._config.model_name, model_name)
 
         usd_file_path = factory.import_model()
         self.assertTrue(os.path.exists(usd_file_path))
 
-        stage = Usd.Stage.Open(usd_file_path)
-        default_prim = stage.GetDefaultPrim()
-        self.assertEqual(default_prim.GetName(), model_name)
+        if factory.config.root_name is not None:
+            stage = Usd.Stage.Open(usd_file_path)
+            default_prim = stage.GetDefaultPrim()
+            self.assertEqual(default_prim.GetName(), factory.config.root_name)
 
         factory.save_tmp_model(usd_file_path=model_path)
         self.assertTrue(os.path.exists(model_path))
@@ -170,7 +172,18 @@ class MjcfExporterTestCase(MultiverseExporterTestCase):
             if config.with_physics:
                 self.assertGreater(body.mass[0], mjMINVAL)
             else:
-                self.assertEqual(body.dofnum, 0)
+                self.assertEqual(body.dofnum[0], 0)
+
+        if config.with_physics and config.fixed_base is not None:
+            first_body = mj_model.body(1)
+            if config.fixed_base:
+                self.assertEqual(first_body.dofnum[0], 0)
+            else:
+                self.assertEqual(first_body.dofnum[0], 6)
+                self.assertEqual(first_body.jntnum[0], 1)
+                jnt_adr = first_body.jntadr[0]
+                jnt = mj_model.joint(jnt_adr)
+                self.assertEqual(jnt.type[0], 0) # mujoco.mjtJoint.mjJNT_FREE
 
 
 class UrdfExporterTestCase(MultiverseExporterTestCase):
@@ -188,7 +201,8 @@ class UrdfExporterTestCase(MultiverseExporterTestCase):
 
         for joint in urdf_model.joints:
             if not config.with_physics:
-                self.assertEqual(joint.type, "fixed")
+                if config.fixed_base:
+                    self.assertEqual(joint.type, "fixed")
 
 
 class UsdToUsdTestCase(MultiverseImporterTestCase):
@@ -202,7 +216,7 @@ class UsdToUsdTestCase(MultiverseImporterTestCase):
     def test_usd_to_usd_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
         self.validate_visual_collision(UsdImporter, input_usd_path, fixed_base=True, with_physics=True,
-                                       add_xform_for_each_geom=True)
+                                       add_xform_for_each_geom=True, root_name="SM_Esstisch")
         self.validate_visual_collision(UsdImporter, input_usd_path, fixed_base=True, with_physics=False,
                                        add_xform_for_each_geom=True)
 
@@ -230,6 +244,13 @@ class MjcfToUsdTestCase(MultiverseImporterTestCase):
         input_mjcf_path = os.path.join(self.resource_path, "input", "preparing_soup", "preparing_soup.xml")
         self.validate_visual_collision(MjcfImporter, input_mjcf_path, fixed_base=False, with_physics=True)
         self.validate_visual_collision(MjcfImporter, input_mjcf_path, fixed_base=False, with_physics=False)
+
+    def test_mjcf_to_usd_pick_box(self):
+        input_mjcf_path = os.path.join(self.resource_path, "input", "mujoco_menagerie", "franka_emika_panda", "mjx_single_cube.xml")
+        self.validate_visual_collision(MjcfImporter, input_mjcf_path,
+                                       fixed_base=True, with_physics=True, root_name="box")
+        self.validate_visual_collision(MjcfImporter, input_mjcf_path,
+                                       fixed_base=True, with_physics=False, root_name="box")
 
 
 class UrdfToUsdTestCase(MultiverseImporterTestCase):
@@ -264,7 +285,7 @@ class UsdToMjcfTestCase(MjcfExporterTestCase):
     def test_usd_to_mjcf_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
         self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="SM_Esstisch")
         self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
                                        fixed_base=True, with_physics=False)
 
@@ -293,6 +314,13 @@ class MjcfToMjcfTestCase(MjcfExporterTestCase):
         self.validate_visual_collision(MjcfImporter, MjcfExporter, input_mjcf_path,
                                        fixed_base=False, with_physics=False)
 
+    def test_mjcf_to_mjcf_pick_box(self):
+        input_mjcf_path = os.path.join(self.resource_path, "input", "mujoco_menagerie", "franka_emika_panda", "mjx_single_cube.xml")
+        self.validate_visual_collision(MjcfImporter, MjcfExporter, input_mjcf_path,
+                                       fixed_base=True, with_physics=True, root_name="box")
+        self.validate_visual_collision(MjcfImporter, MjcfExporter, input_mjcf_path,
+                                       fixed_base=True, with_physics=False, root_name="box")
+
     @unittest.skip("This test is skipped.")
     def test_mjcf_to_mjcf_preparing_soup(self):
         input_mjcf_path = os.path.join(self.resource_path, "input", "preparing_soup", "preparing_soup.xml")
@@ -315,9 +343,9 @@ class UrdfToMjcfTestCase(MjcfExporterTestCase):
     def test_urdf_to_mjcf_ur5e(self):
         input_urdf_path = os.path.join(self.resource_path, "input", "ur5e", "urdf", "ur5e.urdf")
         self.validate_visual_collision(UrdfImporter, MjcfExporter, input_urdf_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="ur5e")
         self.validate_visual_collision(UrdfImporter, MjcfExporter, input_urdf_path,
-                                       fixed_base=True, with_physics=False)
+                                       fixed_base=True, with_physics=False, root_name="ur5e")
 
     def test_urdf_to_mjcf_tiago_dual(self):
         input_urdf_path = os.path.join(self.resource_path, "input", "tiago_dual", "urdf", "tiago_dual.urdf")
@@ -347,7 +375,7 @@ class UsdToUrdfTestCase(UrdfExporterTestCase):
     def test_usd_to_urdf_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
         self.validate_visual_collision(UsdImporter, UrdfExporter, input_usd_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="SM_Esstisch")
         self.validate_visual_collision(UsdImporter, UrdfExporter, input_usd_path,
                                        fixed_base=True, with_physics=False)
 
@@ -358,23 +386,23 @@ class MjcfToUrdfTestCase(UrdfExporterTestCase):
     def test_mjcf_to_urdf_milk_box(self):
         input_mjcf_path = os.path.join(self.resource_path, "input", "milk_box", "mjcf", "milk_box.xml")
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
-                                       fixed_base=False, with_physics=True)
+                                       fixed_base=False, with_physics=True, root_name="milk_box")
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
-                                       fixed_base=False, with_physics=False)
+                                       fixed_base=False, with_physics=False, root_name="milk_box")
 
     def test_mjcf_to_urdf_ur5e(self):
         input_mjcf_path = os.path.join(self.resource_path, "input", "ur5e", "mjcf", "ur5e.xml")
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="ur5e")
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
-                                       fixed_base=True, with_physics=False)
+                                       fixed_base=True, with_physics=False, root_name="ur5e")
 
     def test_mjcf_to_urdf_anymal_c(self):
         input_mjcf_path = os.path.join(self.resource_path, "input", "anymal_c", "anymal_c.xml")
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
-                                       fixed_base=False, with_physics=True)
+                                       fixed_base=False, with_physics=True, root_name="anymal_c")
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
-                                       fixed_base=False, with_physics=False)
+                                       fixed_base=False, with_physics=False, root_name="anymal_c")
 
     def test_mjcf_to_urdf_panda(self):
         input_mjcf_path = os.path.join(self.resource_path, "input", "mujoco_menagerie", "franka_emika_panda",
@@ -398,9 +426,9 @@ class UrdfToUrdfTestCase(UrdfExporterTestCase):
     def test_urdf_to_urdf_ur5e(self):
         input_urdf_path = os.path.join(self.resource_path, "input", "ur5e", "urdf", "ur5e.urdf")
         self.validate_visual_collision(UrdfImporter, UrdfExporter, input_urdf_path,
-                                       fixed_base=True, with_physics=True)
+                                       fixed_base=True, with_physics=True, root_name="ur5e")
         self.validate_visual_collision(UrdfImporter, UrdfExporter, input_urdf_path,
-                                       fixed_base=True, with_physics=False)
+                                       fixed_base=True, with_physics=False, root_name="ur5e")
 
     def test_urdf_to_mjcf_tiago_dual(self):
         input_urdf_path = os.path.join(self.resource_path, "input", "tiago_dual", "urdf", "tiago_dual.urdf")

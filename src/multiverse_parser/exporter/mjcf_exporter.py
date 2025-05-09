@@ -310,6 +310,10 @@ class MjcfExporter:
                 )
             ),
         )
+        default_collision_geom.set(
+            "group",
+            "3"
+        )
 
         asset = ET.SubElement(self.root, "asset")
         mujoco_meshes = [UsdMujoco.MujocoMesh(prim) for prim in self.mujoco_meshes_prim.GetChildren()
@@ -510,9 +514,9 @@ class MjcfExporter:
         if xform_prim.HasAPI(UsdMujoco.MujocoBodyAPI):
             mujoco_body_api = UsdMujoco.MujocoBodyAPI(xform_prim)
         else:
-            if parent_body_name == "worldbody":
+            if parent_body_name == "world" or parent_body_name == "worldbody":
                 mujoco_body_api = get_mujoco_body_api(xform_prim=xform_prim)
-                if not self.factory.config.fixed_base and self.factory.config.with_physics:
+                if self.factory.config.with_physics and self.factory.config.fixed_base is False:
                     ET.SubElement(body, "freejoint")
             else:
                 parent_body_builder = world_builder.get_body_builder(parent_body_name)

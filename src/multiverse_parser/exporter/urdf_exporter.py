@@ -205,8 +205,7 @@ class UrdfExporter:
             visual_mesh_file_extension: str = "obj",
     ) -> None:
         self._factory = factory
-        robot_name = get_robot_name(world_builder=factory.world_builder)
-        self._robot = urdf.URDF(name=robot_name)
+        self._robot = urdf.URDF(name=self.factory.config.model_name)
         self._ros_package_path = None
         self._file_path = file_path
         (self._mesh_dir_abspath,
@@ -271,22 +270,38 @@ class UrdfExporter:
             if urdf_joint is not None:
                 self.robot.add_joint(urdf_joint)
 
-        if len(body_builder.joint_builders) == 0:
-            urdf_joint = self._build_fixed_joint(body_builder=body_builder)
-            if urdf_joint is not None:
-                self.robot.add_joint(urdf_joint)
+        if len(body_builder.joint_builders) == 0 and not body_builder.xform.GetPrim().GetParent().IsPseudoRoot():
+            if self.factory.config.root_name == body_builder.xform.GetPrim().GetParent().GetName():
+                if self.factory.config.fixed_base:
+                    urdf_joint = self._build_fixed_joint(body_builder=body_builder)
+                else:
+                    urdf_joint = self._build_free_joint(body_builder=body_builder)
+            else:
+                urdf_joint = self._build_fixed_joint(body_builder=body_builder)
+            self.robot.add_joint(urdf_joint)
 
-    def _build_fixed_joint(self,
-                           body_builder: BodyBuilder,
-                           urdf_joint_api: Optional[UsdUrdf.UrdfJointAPI] = None) -> Optional[urdf.Joint]:
+    def _build_free_joint(self,
+                          body_builder: BodyBuilder):
         child_xform = body_builder.xform
         child_prim = child_xform.GetPrim()
         child_link_name = child_prim.GetName()
-        if child_link_name == self.robot.name:
-            return None
-
         parent_link_name = child_prim.GetParent().GetName()
+        urdf_joint = urdf.Joint(name=child_link_name + "_joint")
+        xyz, rpy = get_urdf_origin(xform=child_xform)
+        urdf_joint.origin = urdf.Pose(xyz=xyz, rpy=rpy)
+        urdf_joint.type = "floating"
+        urdf_joint.parent = parent_link_name
+        urdf_joint.child = child_link_name
 
+        return urdf_joint
+
+    def _build_fixed_joint(self,
+                           body_builder: BodyBuilder,
+                           urdf_joint_api: Optional[UsdUrdf.UrdfJointAPI] = None) -> urdf.Joint:
+        child_xform = body_builder.xform
+        child_prim = child_xform.GetPrim()
+        child_link_name = child_prim.GetName()
+        parent_link_name = child_prim.GetParent().GetName()
         urdf_joint = urdf.Joint(name=child_link_name + "_joint")
         if urdf_joint_api is not None:
             xyz = urdf_joint_api.GetXyzAttr().Get()

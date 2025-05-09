@@ -97,6 +97,7 @@ class UrdfImporter(Factory):
             with_physics: bool,
             with_visual: bool,
             with_collision: bool,
+            root_name: Optional[str] = None,
             inertia_source: InertiaSource = InertiaSource.FROM_SRC,
             default_rgba: Optional[numpy.ndarray] = None,
     ) -> None:
@@ -110,6 +111,7 @@ class UrdfImporter(Factory):
         super().__init__(file_path=file_path, config=Configuration(
             model_name=model_name,
             fixed_base=fixed_base,
+            root_name=root_name,
             with_physics=with_physics,
             with_visual=with_visual,
             with_collision=with_collision,
@@ -123,17 +125,20 @@ class UrdfImporter(Factory):
 
         self._import_config()
 
-        body_builder = self.world_builder.add_body(body_name=self._config.model_name)
-        if self._config.model_name != self.urdf_model.get_root():
-            print(f"Root link {self.urdf_model.get_root()} is not the model name {self._config.model_name}, "
-                  f"add it as a root body.")
-            body_builder = self.world_builder.add_body(body_name=self.urdf_model.get_root(),
-                                                       parent_body_name=self._config.model_name)
+        if self.config.root_name is not None:
+            root_link_name = self.config.root_name
+        else:
+            root_link_name = self.urdf_model.get_root()
 
-        self._import_geoms(link=self.urdf_model.link_map[self.urdf_model.get_root()],
-                           body_builder=body_builder)
-
-        self._import_body_and_joint(urdf_link_name=self.urdf_model.get_root())
+        body_builder = self.world_builder.add_body(body_name=root_link_name)
+        if root_link_name in self.urdf_model.link_map:
+            self._import_geoms(link=self.urdf_model.link_map[root_link_name],
+                               body_builder=body_builder)
+            self._import_body_and_joint(urdf_link_name=root_link_name)
+        else:
+            self.world_builder.add_body(body_name=self.urdf_model.get_root(),
+                                        parent_body_name=root_link_name)
+            self._import_body_and_joint(urdf_link_name=self.urdf_model.get_root())
 
         self._import_meshes()
 
@@ -172,9 +177,13 @@ class UrdfImporter(Factory):
     def _import_body(self, body_name: str, child_body_name: str, joint: urdf.Joint) -> BodyBuilder:
         joint_pos, joint_quat = get_joint_pos_and_quat(joint)
 
+        if self.config.root_name is not None:
+            root_link_name = self.config.root_name
+        else:
+            root_link_name = self.urdf_model.get_root()
         if self._config.with_physics and joint.type != "fixed":
             body_builder = self.world_builder.add_body(body_name=child_body_name,
-                                                       parent_body_name=self._config.model_name)
+                                                       parent_body_name=root_link_name)
         else:
             body_builder = self.world_builder.add_body(body_name=child_body_name,
                                                        parent_body_name=body_name)

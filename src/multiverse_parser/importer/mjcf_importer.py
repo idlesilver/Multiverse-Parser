@@ -74,6 +74,7 @@ class MjcfImporter(Factory):
             with_physics: bool,
             with_visual: bool,
             with_collision: bool,
+            root_name: str = "world",
             inertia_source: InertiaSource = InertiaSource.FROM_SRC,
             default_rgba: Optional[numpy.ndarray] = None
     ) -> None:
@@ -89,6 +90,7 @@ class MjcfImporter(Factory):
         model_name = get_model_name(xml_file_path=file_path)
         super().__init__(file_path=file_path, config=Configuration(
             model_name=model_name,
+            root_name=root_name,
             fixed_base=fixed_base,
             with_physics=with_physics,
             with_visual=with_visual,
@@ -103,10 +105,23 @@ class MjcfImporter(Factory):
 
         self._import_config()
 
-        self.world_builder.add_body(body_name=self._config.model_name)
+        self.world_builder.add_body(body_name=self.config.root_name)
 
         body_dict = {}
-        for body_id in range(1, self.mj_model.nbody):
+        start_body_idx = 1
+        end_body_idx = self.mj_model.nbody
+        if self.config.root_name != self.mj_model.body(0).name:
+            for body_id in range(self.mj_model.nbody):
+                body = self.mj_model.body(body_id)
+                if self.config.root_name == body.name:
+                    start_body_idx = body_id
+                    parent_body_id = self.mj_model.body(body_id).parentid[0]
+                    for child_body_id in range(start_body_idx + 1, end_body_idx):
+                        if self.mj_model.body(child_body_id).parentid[0] == parent_body_id:
+                            end_body_idx = child_body_id
+                            break
+                    break
+        for body_id in range(start_body_idx, end_body_idx):
             mj_body = self.mj_model.body(body_id)
 
             parent_body_id = mj_body.parentid[0]
@@ -152,20 +167,17 @@ class MjcfImporter(Factory):
         body_name = mj_body.name if mj_body.name is not None else "Body_" + str(mj_body.id)
 
         parent_mj_body = self.mj_model.body(mj_body.parentid[0])
-        if parent_mj_body.id == 0:
+        if parent_mj_body.name == self.config.root_name:
             body_builder = self.world_builder.add_body(body_name=body_name,
-                                                       parent_body_name=self._config.model_name,
+                                                       parent_body_name=self.config.root_name,
                                                        body_id=mj_body.id)
         else:
             parent_body_name = get_body_name(parent_mj_body)
-            if self._config.with_physics and mj_body.jntnum[0] > 0:
-                body_builder = self.world_builder.add_body(body_name=body_name,
-                                                           parent_body_name=self._config.model_name,
-                                                           body_id=mj_body.id)
-            else:
-                body_builder = self.world_builder.add_body(body_name=body_name,
-                                                           parent_body_name=parent_body_name,
-                                                           body_id=mj_body.id)
+            if parent_body_name == "world" or self._config.with_physics and mj_body.jntnum[0] > 0:
+                parent_body_name = self.config.root_name
+            body_builder = self.world_builder.add_body(body_name=body_name,
+                                                       parent_body_name=parent_body_name,
+                                                       body_id=mj_body.id)
 
             relative_to_body_builder = self.world_builder.get_body_builder(body_name=parent_body_name)
             relative_to_xform = relative_to_body_builder.xform
@@ -290,9 +302,9 @@ class MjcfImporter(Factory):
         return geom_builders
 
     def _import_inertial(self, mj_body, body_builder):
-        if self._config.with_physics and not (
-                self._config.fixed_base and mj_body.id == 1):
-            if self._config.inertia_source == InertiaSource.FROM_SRC:
+        if self.config.with_physics and not (
+                self.config.fixed_base and mj_body.id == 1):
+            if self.config.inertia_source == InertiaSource.FROM_SRC:
                 body_mass = mj_body.mass[0]
                 body_center_of_mass = mj_body.ipos
                 body_diagonal_inertia = mj_body.inertia
@@ -535,6 +547,8 @@ class MjcfImporter(Factory):
                     equality_name = "Equality_" + str(equality_id)
                 joint1_id = equality.obj1id[0]
                 joint2_id = equality.obj2id[0]
+                if joint1_id not in self._joint_builders or joint2_id not in self._joint_builders:
+                    continue
                 joint1_path = self._joint_builders[joint1_id].joint.GetPath()
                 joint2_path = self._joint_builders[joint2_id].joint.GetPath()
                 mujoco_equality_joint = UsdMujoco.MujocoEqualityJoint.Define(self.world_builder.stage,

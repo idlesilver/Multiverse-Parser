@@ -46,6 +46,7 @@ class UsdImporter(Factory):
             with_physics: bool,
             with_visual: bool,
             with_collision: bool,
+            root_name: Optional[str] = None,
             inertia_source: InertiaSource = InertiaSource.FROM_SRC,
             default_rgba: Optional[numpy.ndarray] = None,
             add_xform_for_each_geom: Optional[bool] = None
@@ -62,6 +63,7 @@ class UsdImporter(Factory):
         super().__init__(file_path=file_path, config=Configuration(
             model_name=model_name,
             fixed_base=fixed_base,
+            root_name=root_name,
             with_physics=with_physics,
             with_visual=with_visual,
             with_collision=with_collision,
@@ -85,7 +87,15 @@ class UsdImporter(Factory):
     def import_model(self, save_file_path: Optional[str] = None) -> str:
         self._world_builder = WorldBuilder(self.tmp_usd_file_path)
 
-        root_prim = self.stage.GetDefaultPrim()
+        if self.config.root_name is not None:
+            for prim in self.stage.Traverse():
+                if prim.GetName() == self.config.root_name:
+                    root_prim = prim
+                    break
+            else:
+                raise NotImplementedError(f"Root prim {self.config.root_name} not found.")
+        else:
+            root_prim = self.stage.GetDefaultPrim()
         self.world_builder.add_body(root_prim.GetName())
 
         if not self.config.with_physics:
@@ -102,6 +112,8 @@ class UsdImporter(Factory):
             self._import_joints()
 
             for body_prim in [body_prim for body_prim in self.stage.Traverse() if body_prim.IsA(UsdGeom.Xform)]:
+                if body_prim.GetName() not in self.world_builder.body_builders:
+                    continue
                 body_builder = self.world_builder.get_body_builder(body_name=body_prim.GetName())
                 self._import_inertial(body_prim=body_prim, body_builder=body_builder)
 
@@ -321,9 +333,11 @@ class UsdImporter(Factory):
             joint = UsdPhysics.Joint(joint_prim)
             joint_name = joint.GetPrim().GetName()
             parent_prim_name = joint.GetBody0Rel().GetTargets()[0].name
+            child_prim_name = joint.GetBody1Rel().GetTargets()[0].name
+            if parent_prim_name not in self.world_builder.body_builders or child_prim_name not in self.world_builder.body_builders:
+                continue
             parent_body_builder = self.world_builder.get_body_builder(body_name=parent_prim_name)
             parent_prim = parent_body_builder.xform.GetPrim()
-            child_prim_name = joint.GetBody1Rel().GetTargets()[0].name
             child_body_builder = self.world_builder.get_body_builder(body_name=child_prim_name)
             child_prim = child_body_builder.xform.GetPrim()
 
