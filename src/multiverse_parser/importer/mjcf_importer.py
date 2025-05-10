@@ -181,6 +181,8 @@ class MjcfImporter(Factory):
             )
         else:
             parent_body_name = get_body_name(parent_mj_body)
+            if parent_body_name == "world":
+                parent_body_name = self.config.root_name
             if self._config.with_physics and mj_body.jntnum[0] > 0:
                 body_builder = self.world_builder.add_body(body_name=body_name,
                                                            parent_body_name=self.config.root_name,

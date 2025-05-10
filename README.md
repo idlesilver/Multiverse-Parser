@@ -129,6 +129,24 @@ This allows you to make changes to the source code and immediately reflect them 
 You can then test it in a Python shell:
 
 ```python
-import multiverse_parser
-from pxr import UsdUrdf, UsdMujoco
+from multiverse_parser import InertiaSource, MjcfImporter, UrdfExporter
+
+def main():
+    input_path = "input/path.xml"
+    output_path = "output/path.urdf"
+    factory = MjcfImporter(file_path=input_path,
+                           fixed_base=False,
+                           root_name="world", # Or robot root link
+                           with_physics=True,
+                           with_visual=True,
+                           with_collision=True,
+                           inertia_source=InertiaSource.FROM_SRC)
+    factory.import_model()
+    exporter = UrdfExporter(file_path=output_path,
+                            factory=factory)
+    exporter.build()
+    exporter.export(keep_usd=False)
+
+if __name__ == "__main__":
+    main()
 ```
