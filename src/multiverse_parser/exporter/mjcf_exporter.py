@@ -513,6 +513,9 @@ class MjcfExporter:
 
         if xform_prim.HasAPI(UsdMujoco.MujocoBodyAPI):
             mujoco_body_api = UsdMujoco.MujocoBodyAPI(xform_prim)
+            if parent_body_name == "world" or parent_body_name == "worldbody":
+                if self.factory.config.with_physics and self.factory.config.fixed_base is False:
+                    ET.SubElement(body, "freejoint")
         else:
             if parent_body_name == "world" or parent_body_name == "worldbody":
                 mujoco_body_api = get_mujoco_body_api(xform_prim=xform_prim)

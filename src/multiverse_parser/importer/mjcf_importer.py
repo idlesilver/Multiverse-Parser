@@ -135,7 +135,7 @@ class MjcfImporter(Factory):
                 if self._config.with_physics:
                     body_dict[mj_body] = body_builder
                     self._import_joints(mj_body=mj_body, body_builder=body_builder)
-        
+
         self.execute_cmds()
 
         if self._config.with_physics:
@@ -231,7 +231,8 @@ class MjcfImporter(Factory):
     def _import_points(self, body_builder: BodyBuilder):
         parent_body_name = body_builder.xform.GetPrim().GetName()
         if parent_body_name in self.bodies_with_composite:
-            for points_builder, points_element in zip(body_builder.points_builders, self.bodies_with_composite[parent_body_name]):
+            for points_builder, points_element in zip(body_builder.points_builders,
+                                                      self.bodies_with_composite[parent_body_name]):
                 points_builder.build()
 
                 points_type = points_element.attrib["type"]
@@ -307,13 +308,12 @@ class MjcfImporter(Factory):
         return geom_builders
 
     def _import_inertial(self, mj_body, body_builder):
-        if self.config.with_physics:
+        if self.config.with_physics and not (
+                self.config.fixed_base and self._mj_model.body(mj_body.parentid[0]).name == self.config.root_name):
             if self.config.inertia_source == InertiaSource.FROM_SRC:
                 body_mass = mj_body.mass[0]
                 body_center_of_mass = mj_body.ipos
                 body_diagonal_inertia = mj_body.inertia
-                if mj_body.name == "right_thigh":
-                    pass
                 body_principal_axes = numpy.array([mj_body.iquat[1],
                                                    mj_body.iquat[2],
                                                    mj_body.iquat[3],
