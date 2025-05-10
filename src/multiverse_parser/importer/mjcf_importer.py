@@ -114,7 +114,7 @@ class MjcfImporter(Factory):
             for body_id in range(self.mj_model.nbody):
                 body = self.mj_model.body(body_id)
                 if self.config.root_name == body.name:
-                    start_body_idx = body_id
+                    start_body_idx = body_id + 1
                     parent_body_id = self.mj_model.body(body_id).parentid[0]
                     for child_body_id in range(start_body_idx + 1, end_body_idx):
                         if self.mj_model.body(child_body_id).parentid[0] == parent_body_id:
@@ -165,36 +165,41 @@ class MjcfImporter(Factory):
 
     def _import_body(self, mj_body) -> BodyBuilder:
         body_name = mj_body.name if mj_body.name is not None else "Body_" + str(mj_body.id)
-
+        body_pos = mj_body.pos
+        body_quat = numpy.array([mj_body.quat[1],
+                                 mj_body.quat[2],
+                                 mj_body.quat[3],
+                                 mj_body.quat[0]])
         parent_mj_body = self.mj_model.body(mj_body.parentid[0])
         if parent_mj_body.name == self.config.root_name:
             body_builder = self.world_builder.add_body(body_name=body_name,
                                                        parent_body_name=self.config.root_name,
                                                        body_id=mj_body.id)
+            body_builder.set_transform(
+                pos=body_pos,
+                quat=body_quat
+            )
         else:
             parent_body_name = get_body_name(parent_mj_body)
-            if parent_body_name == "world" or self._config.with_physics and mj_body.jntnum[0] > 0:
-                parent_body_name = self.config.root_name
-            body_builder = self.world_builder.add_body(body_name=body_name,
-                                                       parent_body_name=parent_body_name,
-                                                       body_id=mj_body.id)
-
+            if self._config.with_physics and mj_body.jntnum[0] > 0:
+                body_builder = self.world_builder.add_body(body_name=body_name,
+                                                           parent_body_name=self.config.root_name,
+                                                           body_id=mj_body.id)
+            else:
+                body_builder = self.world_builder.add_body(body_name=body_name,
+                                                           parent_body_name=parent_body_name,
+                                                           body_id=mj_body.id)
             relative_to_body_builder = self.world_builder.get_body_builder(body_name=parent_body_name)
             relative_to_xform = relative_to_body_builder.xform
-            body_pos = mj_body.pos
-            body_quat = numpy.array([mj_body.quat[1],
-                                     mj_body.quat[2],
-                                     mj_body.quat[3],
-                                     mj_body.quat[0]])
             body_builder.set_transform(
                 pos=body_pos,
                 quat=body_quat,
                 relative_to_xform=relative_to_xform,
             )
 
-            mujoco_body_api = UsdMujoco.MujocoBodyAPI.Apply(body_builder.xform.GetPrim())
-            mujoco_body_api.CreatePosAttr(Gf.Vec3f(*body_pos))
-            mujoco_body_api.CreateQuatAttr(Gf.Quatf(body_quat[3], *body_quat[:3]))
+        mujoco_body_api = UsdMujoco.MujocoBodyAPI.Apply(body_builder.xform.GetPrim())
+        mujoco_body_api.CreatePosAttr(Gf.Vec3f(*body_pos))
+        mujoco_body_api.CreateQuatAttr(Gf.Quatf(body_quat[3], *body_quat[:3]))
 
         return body_builder
 
@@ -302,12 +307,13 @@ class MjcfImporter(Factory):
         return geom_builders
 
     def _import_inertial(self, mj_body, body_builder):
-        if self.config.with_physics and not (
-                self.config.fixed_base and mj_body.id == 1):
+        if self.config.with_physics:
             if self.config.inertia_source == InertiaSource.FROM_SRC:
                 body_mass = mj_body.mass[0]
                 body_center_of_mass = mj_body.ipos
                 body_diagonal_inertia = mj_body.inertia
+                if mj_body.name == "right_thigh":
+                    pass
                 body_principal_axes = numpy.array([mj_body.iquat[1],
                                                    mj_body.iquat[2],
                                                    mj_body.iquat[3],
