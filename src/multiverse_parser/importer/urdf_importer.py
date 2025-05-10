@@ -37,17 +37,22 @@ def build_urdf_inertial_api(physics_mass_api: UsdPhysics.MassAPI) -> UsdUrdf.Urd
     xyz = physics_mass_api.GetCenterOfMassAttr().Get()
     quat = physics_mass_api.GetPrincipalAxesAttr().Get()
     quat = numpy.array([*quat.GetImaginary(), quat.GetReal()])
-    rpy = Rotation.from_quat(quat).as_euler("xyz", degrees=False)
     diagonal_inertia = physics_mass_api.GetDiagonalInertiaAttr().Get()
+    diagonal_inertia_matrix = numpy.diag([*diagonal_inertia])
+    rot = Rotation.from_quat(quat).as_matrix()
+    full_inertia_matrix = rot @ diagonal_inertia_matrix @ rot.T
 
     prim = physics_mass_api.GetPrim()
     urdf_link_inertial_api = UsdUrdf.UrdfLinkInertialAPI.Apply(prim)
     urdf_link_inertial_api.CreateMassAttr(mass)
     urdf_link_inertial_api.CreateXyzAttr(Gf.Vec3f(*xyz))
-    urdf_link_inertial_api.CreateRpyAttr(Gf.Vec3f(*rpy))
-    urdf_link_inertial_api.CreateIxxAttr(diagonal_inertia[0])
-    urdf_link_inertial_api.CreateIyyAttr(diagonal_inertia[1])
-    urdf_link_inertial_api.CreateIzzAttr(diagonal_inertia[2])
+    urdf_link_inertial_api.CreateRpyAttr(Gf.Vec3f(0, 0, 0))
+    urdf_link_inertial_api.CreateIxxAttr(full_inertia_matrix[0][0])
+    urdf_link_inertial_api.CreateIyyAttr(full_inertia_matrix[1][1])
+    urdf_link_inertial_api.CreateIzzAttr(full_inertia_matrix[2][2])
+    urdf_link_inertial_api.CreateIxyAttr(full_inertia_matrix[0][1])
+    urdf_link_inertial_api.CreateIyzAttr(full_inertia_matrix[1][2])
+    urdf_link_inertial_api.CreateIxzAttr(full_inertia_matrix[0][2])
 
     return urdf_link_inertial_api
 
@@ -59,7 +64,7 @@ def get_joint_pos_and_quat(urdf_joint) -> (numpy.ndarray, numpy.ndarray):
     else:
         joint_pos = numpy.array([0.0, 0.0, 0.0])
         joint_rpy = numpy.array([0.0, 0.0, 0.0])
-    joint_quat = Rotation.from_euler('xyz', joint_rpy).as_quat()
+    joint_quat = Rotation.from_euler('XYZ', joint_rpy).as_quat()
     return joint_pos, joint_quat
 
 
@@ -210,7 +215,7 @@ class UrdfImporter(Factory):
                                                        [body_inertia.ixz, body_inertia.iyz, body_inertia.izz]])
                     body_inertia_tensor = shift_inertia_tensor(mass=body_mass,
                                                                inertia_tensor=body_inertia_tensor,
-                                                               quat=Rotation.from_euler('xyz',
+                                                               quat=Rotation.from_euler('XYZ',
                                                                                         body.inertial.origin.rpy if body.inertial.origin is not None else numpy.array(
                                                                                             [0.0, 0.0, 0.0])).inv()
                                                                .as_quat())
@@ -249,7 +254,7 @@ class UrdfImporter(Factory):
         else:
             geom_pos = numpy.array([0.0, 0.0, 0.0])
             geom_rpy = numpy.array([0.0, 0.0, 0.0])
-        geom_quat = Rotation.from_euler('xyz', geom_rpy).as_quat()
+        geom_quat = Rotation.from_euler('XYZ', geom_rpy).as_quat()
 
         geom_is_visible = isinstance(geom, urdf.Visual)
         geom_is_collidable = isinstance(geom, urdf.Collision)
