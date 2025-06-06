@@ -130,11 +130,13 @@ def build_geom(geom_name: str,
 
 
 def get_urdf_inertial_api(xform_prim: Usd.Prim):
-    if xform_prim.HasAPI(UsdUrdf.UrdfLinkInertialAPI):
-        urdf_link_inertial_api = UsdUrdf.UrdfLinkInertialAPI(xform_prim)
-    else:
+    if xform_prim.HasAPI(UsdPhysics.MassAPI):
         physics_mass_api = UsdPhysics.MassAPI(xform_prim)
         urdf_link_inertial_api = build_urdf_inertial_api(physics_mass_api=physics_mass_api)
+    elif xform_prim.HasAPI(UsdUrdf.UrdfLinkInertialAPI):
+        urdf_link_inertial_api = UsdUrdf.UrdfLinkInertialAPI(xform_prim)
+    else:
+        raise ValueError(f"Prim {xform_prim.GetName()} does not have a valid inertial API.")
     return urdf_link_inertial_api
 
 
