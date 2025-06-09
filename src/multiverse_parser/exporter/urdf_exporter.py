@@ -264,8 +264,7 @@ class UrdfExporter:
         for joint_builder in body_builder.joint_builders:
             urdf_joint_api = get_urdf_joint_api(joint_builder=joint_builder)
 
-            joint_type = urdf_joint_api.GetTypeAttr().Get()
-            if joint_type == "fixed" or not self.factory.config.with_physics:
+            if joint_builder.type == JointType.FIXED or not self.factory.config.with_physics:
                 urdf_joint = self._build_fixed_joint(body_builder=body_builder, urdf_joint_api=urdf_joint_api)
             else:
                 urdf_joint = self._build_movable_joint(urdf_joint_api=urdf_joint_api)
