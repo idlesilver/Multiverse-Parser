@@ -60,8 +60,8 @@ def build_urdf_inertial_api(physics_mass_api: UsdPhysics.MassAPI) -> UsdUrdf.Urd
 
 def get_joint_pos_and_quat(urdf_joint) -> (numpy.ndarray, numpy.ndarray):
     if hasattr(urdf_joint, "origin") and urdf_joint.origin is not None:
-        joint_pos = urdf_joint.origin.xyz
-        joint_rpy = urdf_joint.origin.rpy
+        joint_pos = numpy.array([*urdf_joint.origin.xyz], dtype=float)
+        joint_rpy = numpy.array([*urdf_joint.origin.rpy], dtype=float)
     else:
         joint_pos = numpy.array([0.0, 0.0, 0.0])
         joint_rpy = numpy.array([0.0, 0.0, 0.0])
@@ -249,8 +249,8 @@ class UrdfImporter(Factory):
                      geom: Union[urdf.Visual, urdf.Collision],
                      body_builder: BodyBuilder) -> None:
         if geom.origin is not None:
-            geom_pos = geom.origin.xyz
-            geom_rpy = geom.origin.rpy
+            geom_pos = numpy.array([*geom.origin.xyz], dtype=float)
+            geom_rpy = numpy.array([*geom.origin.rpy], dtype=float)
         else:
             geom_pos = numpy.array([0.0, 0.0, 0.0])
             geom_rpy = numpy.array([0.0, 0.0, 0.0])

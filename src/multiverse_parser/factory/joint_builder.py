@@ -199,9 +199,38 @@ def get_joint_axis_and_quat(joint_axis) -> [JointAxis, Optional[numpy.ndarray]]:
         return joint_axis_tmp, None
     else:
         v1 = numpy.array(joint_axis)
+        v1 = v1 / numpy.linalg.norm(v1)
+
         v2 = numpy.array([0, 0, 1])
-        rotation_matrix = numpy.dot(v2[:, numpy.newaxis], v1[numpy.newaxis, :])
+
+        # Compute rotation axis and angle
+        dot_product = numpy.dot(v2, v1)
+        if abs(dot_product - 1.0) < 1e-10:
+            rotation_matrix = numpy.eye(3)
+        elif abs(dot_product + 1.0) < 1e-10:
+            # 180-degree rotation: use a perpendicular axis
+            perp = numpy.array([-v1[1], v1[0], 0]) if abs(v1[0]) > 1e-10 or abs(v1[1]) > 1e-10 else numpy.array(
+                [0, -v1[2], v1[1]])
+            perp = perp / numpy.linalg.norm(perp)
+            rotation_matrix = numpy.eye(3) - 2 * numpy.outer(perp, perp)
+        else:
+            axis = numpy.cross(v2, v1)
+            axis = axis / numpy.linalg.norm(axis)
+            angle = numpy.arccos(numpy.clip(dot_product, -1.0, 1.0))
+
+            # Rotation matrix from axis-angle (Rodrigues' formula)
+            cos_theta = numpy.cos(angle)
+            sin_theta = numpy.sin(angle)
+            K = numpy.array([[0, -axis[2], axis[1]],
+                             [axis[2], 0, -axis[0]],
+                             [-axis[1], axis[0], 0]])
+            rotation_matrix = numpy.eye(3) * cos_theta + sin_theta * K + (1 - cos_theta) * numpy.outer(axis, axis)
+
+        # Convert to quaternion
         joint_quat = Rotation.from_matrix(rotation_matrix).as_quat()
+        if joint_quat[3] < 0:
+            joint_quat = -joint_quat
+
         return JointAxis.Z, joint_quat
 
 
