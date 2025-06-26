@@ -8,6 +8,7 @@ import numpy
 from scipy.spatial.transform import Rotation
 from mujoco import mjtJoint
 
+from multiverse_parser import logging
 from ..utils import modify_name, xform_cache
 
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
@@ -53,7 +54,7 @@ class JointType(Enum):
         elif self == JointType.PLANAR:
             return "planar"
         elif self == JointType.SPHERICAL:
-            print(f"Joint type {self} not supported, using fixed joint.")
+            logging.warning(f"Joint type {self} not supported, using fixed joint.")
             return "fixed"
         else:
             raise ValueError(f"Joint type {self} not supported.")
@@ -367,7 +368,7 @@ class JointBuilder:
         elif self.type == JointType.SPHERICAL:
             return UsdPhysics.SphericalJoint.Define(self.stage, self.path)
         else:
-            print(f"Joint type {str(self.type)} not supported, using default joint.")
+            logging.warning(f"Joint type {str(self.type)} not supported, using default joint.")
             return UsdPhysics.Joint.Define(self.stage, self.path)
 
     def set_limit(self, lower: float = None, upper: float = None) -> None:
@@ -386,7 +387,7 @@ class JointBuilder:
             if upper is not None:
                 UsdPhysics.PrismaticJoint(self.joint).CreateUpperLimitAttr(upper)
         else:
-            print(f"[Joint {self.joint.GetName()}] Joint type {str(self.type)} does not have limits.")
+            logging.warning(f"[Joint {self.joint.GetName()}] Joint type {str(self.type)} does not have limits.")
 
     @property
     def joint(self) -> UsdPhysics.Joint:

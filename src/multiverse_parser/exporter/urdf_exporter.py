@@ -8,6 +8,7 @@ import numpy
 from scipy.spatial.transform import Rotation
 from urdf_parser_py import urdf
 
+from multiverse_parser import logging
 from ..factory import Factory
 from ..factory import (WorldBuilder,
                        BodyBuilder,
@@ -235,8 +236,8 @@ class UrdfExporter:
                 try:
                     self._ros_package_path = rospack.get_path(relative_to_ros_package)
                 except rospkg.ResourceNotFound:
-                    print(f"Could not find ROS package {relative_to_ros_package}, "
-                          f"searching for package.xml in parent directories of {file_path}.")
+                    logging.warning(f"Could not find ROS package {relative_to_ros_package}, "
+                                    f"searching for package.xml in parent directories of {file_path}.")
                     self._ros_package_path = file_path
                     mesh_dir_relpath = meshdir_name
                     while self._ros_package_path != "/":
@@ -244,7 +245,7 @@ class UrdfExporter:
                         mesh_dir_relpath = os.path.join(os.path.basename(self._ros_package_path), str(mesh_dir_relpath))
 
                         if os.path.exists(os.path.join(self._ros_package_path, "package.xml")):
-                            print(f"Found package.xml in {self._ros_package_path}.")
+                            logging.info(f"Found package.xml in {self._ros_package_path}.")
                             break
                     else:
                         raise FileNotFoundError(

@@ -9,6 +9,7 @@ import numpy
 from scipy.spatial.transform import Rotation
 from urdf_parser_py import urdf
 
+from multiverse_parser import logging
 from ..factory import Factory, Configuration, InertiaSource
 from ..factory import (WorldBuilder,
                        BodyBuilder,
@@ -409,21 +410,21 @@ class UrdfImporter(Factory):
                 package_path = os.path.dirname(rospkg.RosPack().get_path(package_name))
                 mesh_file_path = os.path.join(package_path, urdf_mesh_file_path)
             except (ImportError, rospkg.common.ResourceNotFound):
-                print(f"Package {package_name} not found or rospkg not installed, "
-                      f"searching for {urdf_mesh_file_path} in {os.getcwd()}...")
+                logging.warning(f"Package {package_name} not found or rospkg not installed, "
+                                f"searching for {urdf_mesh_file_path} in {os.getcwd()}...")
                 file_paths = []
                 for root, _, files in os.walk(os.getcwd()):
                     if urdf_mesh_file_path in files:
                         file_paths.append(os.path.join(root, urdf_mesh_file_path))
 
                 if len(file_paths) == 0:
-                    print(f"Mesh file {urdf_mesh_file_path} not found in {os.getcwd()}.")
+                    logging.warning(f"Mesh file {urdf_mesh_file_path} not found in {os.getcwd()}.")
                     return
                 elif len(file_paths) == 1:
-                    print(f"Found {file_paths[0]}")
+                    logging.info(f"Found {file_paths[0]}")
                 elif len(file_paths) > 1:
-                    print(f"Found {len(file_paths)} meshes {urdf_mesh_file_path} in {os.getcwd()}, "
-                          f"take the first one {file_paths[0]}.")
+                    logging.info(f"Found {len(file_paths)} meshes {urdf_mesh_file_path} in {os.getcwd()}, "
+                                 f"take the first one {file_paths[0]}.")
                     mesh_file_path = file_paths[0]
 
         elif urdf_mesh_file_path.find("file://") != -1:
@@ -431,7 +432,7 @@ class UrdfImporter(Factory):
             if not os.path.isabs(mesh_file_path):
                 mesh_file_path = os.path.join(os.path.dirname(self.source_file_path), mesh_file_path)
                 if not os.path.exists(mesh_file_path):
-                    print(f"Mesh file {mesh_file_path} not found.")
+                    logging.warning(f"Mesh file {mesh_file_path} not found.")
                     mesh_file_path = None
 
         return mesh_file_path
