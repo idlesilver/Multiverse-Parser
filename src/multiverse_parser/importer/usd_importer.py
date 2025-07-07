@@ -120,7 +120,9 @@ class UsdImporter(Factory):
 
         self.world_builder.export()
 
-        return self.tmp_usd_file_path if save_file_path is None else self.save_tmp_model(usd_file_path=save_file_path)
+        if save_file_path is not None:
+            self.save_tmp_model(usd_file_path=save_file_path)
+        return self.tmp_usd_file_path if save_file_path is None else save_file_path
 
     def _import_body(self, body_prim: Usd.Prim) -> None:
         logging.info(f"Importing body {body_prim.GetName()}...")

@@ -195,7 +195,7 @@ class Factory:
 
         self.mesh_file_path_dict[mesh_file_path] = tmp_usd_mesh_file_path, tmp_mesh_file_path
 
-        logging.info("Importing mesh from", mesh_file_path, "to", tmp_usd_mesh_file_path, "and", tmp_mesh_file_path, ".")
+        logging.info(f"Importing mesh from {mesh_file_path} to {tmp_usd_mesh_file_path} and {tmp_mesh_file_path}.")
         mesh_file_path_clone = os.path.join(os.path.dirname(mesh_file_path),
                                             f"clone_{os.path.basename(mesh_file_path)}")
         if mesh_file_extension.lower() in [".usd", ".usda", ".usdz"]:

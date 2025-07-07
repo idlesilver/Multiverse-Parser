@@ -42,7 +42,7 @@ else:
     os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', '..', 'USD', 'linux', 'plugin', 'usd'))}"
 sys.path.insert(0, usd_dir)
 
-from .importer import UrdfImporter, MjcfImporter, UsdImporter
+from .importer import UrdfImporter, MjcfImporter, UsdImporter, LightwheelImporter
 from .exporter import UrdfExporter, MjcfExporter
 from .factory import Factory, Configuration
 from .factory import merge_folders
