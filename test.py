@@ -5,8 +5,8 @@ def main():
     level = logging.DEBUG
     configure_logging(level=level)
 
-    input_path = "/media/giangnguyen/Storage/Lightwheel_Kitchen/Collected_KitchenRoom/KitchenRoom.usd"
-    output_path = "/media/giangnguyen/Storage/Multiverse-Parser/Kitchen.xml"
+    input_path = "/media/giangnguyen/Storage/Ubuntu2204/Lightwheel_Kitchen/Collected_KitchenRoom/KitchenRoom.usd"
+    output_path = "/media/giangnguyen/Storage/Ubuntu2204/Multiverse-Parser/Kitchen.xml"
     factory = LightwheelImporter(
         file_path=input_path,
         with_visual=True,

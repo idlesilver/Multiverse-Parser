@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.10
 
 import os
-from typing import Optional, Dict
+from typing import List, Optional, Dict
 
 import numpy
 
@@ -42,8 +42,9 @@ def get_relative(from_prim, to_prim):
 class LightwheelImporter(Factory):
     stage: Usd.Stage # type: ignore
     parent_map: Dict[Usd.Prim, Usd.Prim] # type: ignore
-    max_mesh_count: int = 8
+    max_mesh_count: int = 1000
     mesh_count: int = 0
+    name_map: Dict[Sdf.Path, str] # type: ignore
 
     def __init__(
             self,
@@ -57,6 +58,19 @@ class LightwheelImporter(Factory):
 
         default_prim = self.stage.GetDefaultPrim()
         model_name = default_prim.GetName()
+
+        self.name_map = {default_prim.GetPath(): model_name}
+        for prim in self.stage.Traverse():
+            assert prim.IsValid(), f"Invalid prim found in stage: {prim.GetPath()}"
+            if not prim.GetParent().IsA(UsdGeom.Xform):
+                continue
+            if prim.IsA(UsdGeom.Xform) or prim.IsA(UsdGeom.Gprim) or prim.IsA(UsdGeom.Mesh):
+                prim_name = prim.GetName()
+                idx = 0
+                while prim_name in self.name_map.values():
+                    prim_name = f"{prim.GetName()}_{idx}"
+                    idx += 1
+                self.name_map[prim.GetPath()] = prim_name
 
         super().__init__(file_path=file_path, config=Configuration(
             model_name=model_name,
@@ -85,16 +99,9 @@ class LightwheelImporter(Factory):
                 parent_prim = self.stage.GetPrimAtPath(parent_prim_paths[0])
             self.parent_map[child_prim] = parent_prim
 
-        for prim in [prim for prim in self.stage.Traverse() if prim.IsA(UsdGeom.Xform) and prim.GetParent().IsA(UsdGeom.Xform)]: # type: ignore
+        for prim_path in self.name_map.keys():
+            prim = self.stage.GetPrimAtPath(prim_path)
             self._import_body(body_prim=prim)
-        for parent_prim in self.parent_map.values():
-            if parent_prim.GetName() in [body_builder.xform.GetPrim().GetName() for body_builder in self.world_builder.body_builders]:
-                continue
-            self._import_body(body_prim=parent_prim)
-        for child_prim in self.parent_map.keys():
-            if child_prim.GetName() in [body_builder.xform.GetPrim().GetName() for body_builder in self.world_builder.body_builders]:
-                continue
-            self._import_body(body_prim=child_prim)
 
         self.world_builder.export()
 
@@ -104,34 +111,49 @@ class LightwheelImporter(Factory):
     
     def _import_body(self, body_prim: Usd.Prim) -> None: # type: ignore
         if body_prim != self.stage.GetDefaultPrim():
-            logging.info(f"Importing body {body_prim.GetName()}...")
+            imported_body_names = [body_builder.xform.GetPrim().GetName() for body_builder in self.world_builder.body_builders]
+            body_name = self.name_map[body_prim.GetPath()]
+            if body_name in imported_body_names:
+                logging.info(f"Body {body_prim.GetPath()} already imported as {body_name}, skipping...")
+                return
+            logging.info(f"Importing body: {body_prim.GetPath()} as {self.name_map[body_prim.GetPath()]}...")
             if self.parent_map.get(body_prim) is None:
                 parent_prim = body_prim.GetParent()
             else:
                 parent_prim = self.parent_map[body_prim]
-            parent_prim_name = parent_prim.GetName()
-            body_builder = self.world_builder.add_body(body_name=body_prim.GetName(),
-                                                       parent_body_name=parent_prim_name)
+            if parent_prim.GetPath() not in self.name_map:
+                logging.warning(f"Parent prim {parent_prim.GetPath()} not found in name map, skipping body import.")
+                return
+            parent_body_name = self.name_map[parent_prim.GetPath()]
+            if parent_body_name not in [body_builder.xform.GetPrim().GetName() for body_builder in self.world_builder.body_builders]:
+                self._import_body(body_prim=parent_prim)
+            body_builder = self.world_builder.add_body(body_name=body_name,
+                                                       parent_body_name=parent_body_name)
             
             parent_to_body_transformation = get_relative(from_prim=parent_prim, to_prim=body_prim)
+            parent_scale = numpy.array([xform_cache.GetLocalToWorldTransform(parent_prim).GetRow(i).GetLength() for i in range(3)])
             body_scale = numpy.array([parent_to_body_transformation.GetRow(i).GetLength() for i in range(3)])
+
             mat_scale = Gf.Matrix4d()
             mat_scale.SetScale(Gf.Vec3d(*1.0/body_scale))
             parent_to_body_transformation = mat_scale * parent_to_body_transformation
-
+            parent_to_body_translate = numpy.array([parent_to_body_transformation.GetRow(3)[i] for i in range(3)])
+            parent_to_body_translate *= parent_scale
+            parent_to_body_transformation.SetTranslateOnly(Gf.Vec3d(*parent_to_body_translate))
             body_builder.xform.ClearXformOpOrder()
             body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
 
             if body_prim.IsA(UsdGeom.Gprim):
-                if self.mesh_count < self.max_mesh_count:
-                    self._import_geom(gprim_prim=body_prim, body_builder=body_builder, body_scale=body_scale)
-                    self.mesh_count += 1
+                body_scale = numpy.array([xform_cache.GetLocalToWorldTransform(body_prim).GetRow(i).GetLength() for i in range(3)])
+                geom_scale = Gf.Matrix4d()
+                geom_scale.SetScale(Gf.Vec3d(*body_scale))
+                self._import_geom(gprim_prim=body_prim, body_builder=body_builder, geom_scale=geom_scale)
 
-    def _import_geom(self, gprim_prim: Usd.Prim, body_builder: BodyBuilder, body_scale: numpy.ndarray) -> None:
+    def _import_geom(self, gprim_prim: Usd.Prim, body_builder: BodyBuilder, geom_scale: Gf.Matrix4d) -> None:
         if not gprim_prim.IsA(UsdGeom.Mesh):
             logging.warning(f"Geometry {gprim_prim.GetName()} is not a mesh, skipping import.")
             return
-        logging.info(f"Importing geometry {gprim_prim.GetName()}...")
+        logging.info(f"Importing geometry: {gprim_prim.GetPath111114()}...")
         gprim = UsdGeom.Gprim(gprim_prim)
         geom_is_visible = gprim.GetVisibilityAttr().Get() != UsdGeom.Tokens.invisible
         geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI)
@@ -153,14 +175,8 @@ class LightwheelImporter(Factory):
                                      is_collidable=False,
                                      rgba=geom_rgba,
                                      density=geom_density)
-        transformation = xform_cache.GetLocalToWorldTransform(gprim_prim)
-        # geom_pos = transformation.ExtractTranslation()
-        # geom_pos = numpy.array([*geom_pos])
-        # geom_quat = transformation.ExtractRotationQuat()
-        # geom_quat = numpy.array([*geom_quat.GetImaginary(), geom_quat.GetReal()])
-        geom_scale = numpy.array([transformation.GetRow(i).GetLength() for i in range(3)])
         mesh_file_path, mesh_src_path = get_usd_mesh_file_path(gprim_prim=gprim_prim)
-        logging.info(f"Mesh file path: {mesh_file_path}, mesh path: {mesh_src_path}, body_scale: {body_scale}, geom_scale: {geom_scale}")
+        logging.info(f"Importing mesh: {mesh_src_path} from {mesh_file_path}")
         mesh = UsdGeom.Mesh(gprim_prim)
         points = mesh.GetPointsAttr().Get()
         assert points is not None, "Mesh points cannot be None"
@@ -177,7 +193,7 @@ class LightwheelImporter(Factory):
                                      normals=numpy.array(normals),
                                      face_vertex_counts=numpy.array(face_vertex_counts),
                                      face_vertex_indices=numpy.array(face_vertex_indices))
-        mesh_name = f"SM_{gprim_prim.GetName()}"
+        mesh_name = self.name_map[gprim_prim.GetPath()]
         mesh_property.mesh_file_name = mesh_name
         if mesh_property.points.size == 0 or mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
             # TODO: Fix empty mesh
@@ -189,9 +205,7 @@ class LightwheelImporter(Factory):
         geom_builder.build()
         geom_builder.add_mesh(mesh_name=mesh_name,
                               mesh_property=mesh_property)
-        mat_scale = Gf.Matrix4d()
-        mat_scale.SetScale(Gf.Vec3d(*geom_scale))
-        geom_builder.gprim.AddTransformOp().Set(mat_scale)
+        geom_builder.gprim.AddTransformOp().Set(geom_scale)
 
     @property
     def stage(self) -> Usd.Stage:
