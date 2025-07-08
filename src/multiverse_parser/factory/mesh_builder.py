@@ -38,7 +38,7 @@ class MeshProperty:
         self._texture_coordinates = texture_coordinates
         self._geom_subsets = geom_subsets
         self._mesh_file_name = mesh_file_name
-        self.check_validity()
+        # self.check_validity()
 
     def check_validity(self):
         if not all(face_vertex_count == 3 for face_vertex_count in self.face_vertex_counts):

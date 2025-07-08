@@ -15,7 +15,8 @@ from ..factory import (WorldBuilder,
                        MaterialProperty)
 from ..utils import xform_cache
 
-from pxr import UsdPhysics, Usd, UsdGeom, UsdShade, Sdf, Gf
+from pxr import UsdPhysics, Usd, UsdGeom, UsdShade, Sdf, Gf, UsdUtils
+
 
 def get_usd_mesh_file_path(gprim_prim: Usd.Prim) -> (str, Sdf.Path): # type: ignore
     prepended_items = gprim_prim.GetPrimStack()[0].referenceList.prependedItems
@@ -33,9 +34,16 @@ def get_usd_mesh_file_path(gprim_prim: Usd.Prim) -> (str, Sdf.Path): # type: ign
     else:
         raise ValueError(f"Multiple prepended items found for {gprim_prim}.")
 
+
+def get_relative(from_prim, to_prim):
+    return xform_cache.GetLocalToWorldTransform(to_prim) * xform_cache.GetLocalToWorldTransform(from_prim).GetInverse()
+
+
 class LightwheelImporter(Factory):
     stage: Usd.Stage # type: ignore
     parent_map: Dict[Usd.Prim, Usd.Prim] # type: ignore
+    max_mesh_count: int = 8
+    mesh_count: int = 0
 
     def __init__(
             self,
@@ -74,7 +82,7 @@ class LightwheelImporter(Factory):
             if len(parent_prim_paths) == 0:
                 parent_prim = root_prim
             else:
-                parent_prim = child_prim.GetParent()
+                parent_prim = self.stage.GetPrimAtPath(parent_prim_paths[0])
             self.parent_map[child_prim] = parent_prim
 
         for prim in [prim for prim in self.stage.Traverse() if prim.IsA(UsdGeom.Xform) and prim.GetParent().IsA(UsdGeom.Xform)]: # type: ignore
@@ -104,15 +112,22 @@ class LightwheelImporter(Factory):
             parent_prim_name = parent_prim.GetName()
             body_builder = self.world_builder.add_body(body_name=body_prim.GetName(),
                                                        parent_body_name=parent_prim_name)
-            xform_local_transformation, _ = xform_cache.ComputeRelativeTransform(body_prim,
-                                                                                 parent_prim)
+            
+            parent_to_body_transformation = get_relative(from_prim=parent_prim, to_prim=body_prim)
+            body_scale = numpy.array([parent_to_body_transformation.GetRow(i).GetLength() for i in range(3)])
+            mat_scale = Gf.Matrix4d()
+            mat_scale.SetScale(Gf.Vec3d(*1.0/body_scale))
+            parent_to_body_transformation = mat_scale * parent_to_body_transformation
+
             body_builder.xform.ClearXformOpOrder()
-            body_builder.xform.AddTransformOp().Set(xform_local_transformation)
+            body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
 
             if body_prim.IsA(UsdGeom.Gprim):
-                self._import_geom(gprim_prim=body_prim, body_builder=body_builder)
+                if self.mesh_count < self.max_mesh_count:
+                    self._import_geom(gprim_prim=body_prim, body_builder=body_builder, body_scale=body_scale)
+                    self.mesh_count += 1
 
-    def _import_geom(self, gprim_prim: Usd.Prim, body_builder: BodyBuilder) -> None:
+    def _import_geom(self, gprim_prim: Usd.Prim, body_builder: BodyBuilder, body_scale: numpy.ndarray) -> None:
         if not gprim_prim.IsA(UsdGeom.Mesh):
             logging.warning(f"Geometry {gprim_prim.GetName()} is not a mesh, skipping import.")
             return
@@ -134,18 +149,49 @@ class LightwheelImporter(Factory):
         geom_rgba = self.config.default_rgba
         geom_density = 1000.0
         geom_property = GeomProperty(geom_type=geom_type,
-                                        is_visible=geom_is_visible,
-                                        is_collidable=geom_is_collidable,
-                                        rgba=geom_rgba,
-                                        density=geom_density)
-        transformation = gprim.GetLocalTransformation()
-        geom_pos = transformation.ExtractTranslation()
-        geom_pos = numpy.array([*geom_pos])
-        geom_quat = transformation.ExtractRotationQuat()
-        geom_quat = numpy.array([*geom_quat.GetImaginary(), geom_quat.GetReal()])
+                                     is_visible=True,
+                                     is_collidable=False,
+                                     rgba=geom_rgba,
+                                     density=geom_density)
+        transformation = xform_cache.GetLocalToWorldTransform(gprim_prim)
+        # geom_pos = transformation.ExtractTranslation()
+        # geom_pos = numpy.array([*geom_pos])
+        # geom_quat = transformation.ExtractRotationQuat()
+        # geom_quat = numpy.array([*geom_quat.GetImaginary(), geom_quat.GetReal()])
         geom_scale = numpy.array([transformation.GetRow(i).GetLength() for i in range(3)])
-        mesh_file_path, mesh_path = get_usd_mesh_file_path(gprim_prim=gprim_prim)
-        logging.info(f"Mesh file path: {mesh_file_path}, mesh path: {mesh_path}")
+        mesh_file_path, mesh_src_path = get_usd_mesh_file_path(gprim_prim=gprim_prim)
+        logging.info(f"Mesh file path: {mesh_file_path}, mesh path: {mesh_src_path}, body_scale: {body_scale}, geom_scale: {geom_scale}")
+        mesh = UsdGeom.Mesh(gprim_prim)
+        points = mesh.GetPointsAttr().Get()
+        assert points is not None, "Mesh points cannot be None"
+        normals = mesh.GetNormalsAttr().Get()
+        if normals is None:
+            normals = gprim_prim.GetAttribute("primvars:normals").Get()
+        assert normals is not None, "Mesh normals cannot be None"
+        
+        face_vertex_counts = mesh.GetFaceVertexCountsAttr().Get()
+        assert face_vertex_counts is not None, "Mesh face vertex counts cannot be None"
+        face_vertex_indices = mesh.GetFaceVertexIndicesAttr().Get()
+        assert face_vertex_indices is not None, "Mesh face vertex indices cannot be None"
+        mesh_property = MeshProperty(points=numpy.array(points),
+                                     normals=numpy.array(normals),
+                                     face_vertex_counts=numpy.array(face_vertex_counts),
+                                     face_vertex_indices=numpy.array(face_vertex_indices))
+        mesh_name = f"SM_{gprim_prim.GetName()}"
+        mesh_property.mesh_file_name = mesh_name
+        if mesh_property.points.size == 0 or mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
+            # TODO: Fix empty mesh
+            logging.warning(f"Mesh {gprim_prim.GetName()} has no points or face vertex counts, skipping import.")
+            return
+
+        geom_builder = body_builder.add_geom(geom_name=f"{mesh_name}",
+                                             geom_property=geom_property)
+        geom_builder.build()
+        geom_builder.add_mesh(mesh_name=mesh_name,
+                              mesh_property=mesh_property)
+        mat_scale = Gf.Matrix4d()
+        mat_scale.SetScale(Gf.Vec3d(*geom_scale))
+        geom_builder.gprim.AddTransformOp().Set(mat_scale)
 
     @property
     def stage(self) -> Usd.Stage:
