@@ -293,7 +293,9 @@ class Factory:
         # elif len(self.cmds) == 1:
         #     logging.info(f"Executing [blender --background --python-expr\nimport bpy{self.cmds[0]}]...")
 
+        max_processes_count = 100
         processes = []
+        processes_count = 0
         for sub_cmd in self.cmds:
             cmd = ["blender", "--background", "--quiet", "--python-expr", "import bpy" + sub_cmd]
             logger = logging.getLogger(__name__)
@@ -302,9 +304,13 @@ class Factory:
             else:
                 process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL)
             processes.append(process)
-        
-        for process in processes:
-            process.wait()
+            processes_count += 1
+            if processes_count >= max_processes_count:
+                logging.info(f"Executing {processes_count} commands in parallel...")
+                for process in processes:
+                    process.wait()
+                processes = []
+                processes_count = 0
 
         self._cmds = []
 

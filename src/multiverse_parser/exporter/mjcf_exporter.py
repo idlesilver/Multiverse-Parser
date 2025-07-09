@@ -141,6 +141,11 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder) -> UsdMujoco.MujocoGeomAPI:
                 xform = UsdGeom.Xform(gprim_prim)
                 transformation = xform.GetLocalTransformation()
                 geom_size = numpy.array([round(transformation.GetRow(i).GetLength(), 3) for i in range(3)])
+                geom_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
+                det_geom_size = numpy.linalg.det(geom_size_mat)
+                if det_geom_size < 0:
+                    logging.warning(f"Geom {gprim_prim.GetName()} has negative scale, flipping the sign from {geom_size} to {-geom_size}.")
+                    geom_size = -geom_size
             geom_type = "box"
         elif geom_builder.type == GeomType.SPHERE:
             geom_size = numpy.array([gprim.GetRadiusAttr().Get(), 0.0, 0.0])
@@ -162,6 +167,11 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder) -> UsdMujoco.MujocoGeomAPI:
                 xform = UsdGeom.Xform(gprim_prim)
                 transformation = xform.GetLocalTransformation()
                 geom_size = numpy.array([round(transformation.GetRow(i).GetLength(), 3) for i in range(3)])
+                geom_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
+                det_geom_size = numpy.linalg.det(geom_size_mat)
+                if det_geom_size < 0:
+                    logging.warning(f"Geom {gprim_prim.GetName()} has negative scale, flipping the sign from {geom_size} to {-geom_size}.")
+                    geom_size = -geom_size
             geom_type = "mesh"
         else:
             raise NotImplementedError(f"Geom type {geom_builder.type} not implemented.")
@@ -414,6 +424,11 @@ class MjcfExporter:
                         xform = UsdGeom.Xform(prim)
                         transformation = xform.GetLocalTransformation()
                         mesh_scale = tuple(round(transformation.GetRow(i).GetLength(), 3) for i in range(3))
+                        mesh_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
+                        det_geom_size = numpy.linalg.det(mesh_size_mat)
+                        if det_geom_size < 0:
+                            logging.warning(f"Mesh {mesh_file_path} has negative scale, flipping the sign from {mesh_scale} to {tuple(-s for s in mesh_scale)}.")
+                            mesh_scale = tuple(-s for s in mesh_scale)
 
                     mesh_has_texture = False
                     if prim.HasAPI(UsdShade.MaterialBindingAPI):
