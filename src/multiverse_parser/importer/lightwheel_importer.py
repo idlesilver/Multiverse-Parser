@@ -249,34 +249,11 @@ class LightwheelImporter(Factory):
             joint_axis = joint.GetAxisAttr().Get()
         else:
             raise ValueError(f"Joint type {joint_prim} not supported.")
-        
-        
-
-        body1_to_body2_transform = get_relative(from_prim=parent_prim, to_prim=child_prim)
-
-        body_scale = numpy.array([body1_to_body2_transform.GetRow(i).GetLength() for i in range(3)])
-        body_scale_mat = numpy.array([[xform_cache.GetLocalToWorldTransform(child_prim).GetRow(i)[j] for i in range(3)] for j in range(3)])
-        det_body_scale = numpy.linalg.det(body_scale_mat)
-        if det_body_scale < 0:
-            logging.warning(f"Body {child_prim.GetPath()} has negative scale, flipping the sign from {body_scale} to {-body_scale}.")
-            body_scale = -body_scale
-
-        body1_to_body2_pos = body1_to_body2_transform.ExtractTranslation()
-
-        joint_quat = joint.GetLocalRot1Attr().Get()
-        joint_quat = numpy.array([*joint_quat.GetImaginary(), joint_quat.GetReal()])
-        body1_transform = xform_cache.GetLocalToWorldTransform(parent_prim)
-        body1_rot = body1_transform.ExtractRotationQuat()
-        joint_parent_prim = joint_prim.GetParent()
-        joint_transform = get_relative(from_prim=parent_prim, to_prim=joint_parent_prim)
-        joint_pos = numpy.array([*joint.GetLocalPos0Attr().Get()]) * body_scale
 
         joint_property = JointProperty(joint_parent_prim=parent_prim,
-                                        joint_child_prim=child_prim,
-                                        joint_pos=joint_pos,
-                                        joint_quat=None,
-                                        joint_axis=JointAxis.from_string(joint_axis),
-                                        joint_type=joint_type)
+                                       joint_child_prim=child_prim,
+                                       joint_axis=JointAxis.from_string(joint_axis),
+                                       joint_type=joint_type)
         joint_builder = child_body_builder.add_joint(joint_name=joint_name,
                                                      joint_property=joint_property)
         if joint_prim.IsA(UsdPhysics.RevoluteJoint) or joint_prim.IsA(UsdPhysics.PrismaticJoint):

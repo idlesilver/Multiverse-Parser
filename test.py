@@ -12,6 +12,7 @@ def main():
         with_visual=True,
         with_collision=True,
         inertia_source=InertiaSource.FROM_SRC,
+        black_list_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001"]
     )
     factory.import_model()
     exporter = MjcfExporter(file_path=output_path, factory=factory)
