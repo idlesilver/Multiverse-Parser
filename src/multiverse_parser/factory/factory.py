@@ -293,7 +293,7 @@ class Factory:
         # elif len(self.cmds) == 1:
         #     logging.info(f"Executing [blender --background --python-expr\nimport bpy{self.cmds[0]}]...")
 
-        max_processes_count = 10
+        max_processes_count = 5
         processes = []
         processes_count = 0
         for sub_cmd in self.cmds:

@@ -279,7 +279,7 @@ class GeomBuilder:
         if self.inertial is None:
             self._inertial = self.origin_inertial
 
-            gprim_transform = self.gprim.GetLocalTransformation()
+            gprim_transform = self.gprim.GetLocalTransformation().RemoveScaleShear()
             gprim_pos = gprim_transform.ExtractTranslation()
             gprim_pos = numpy.array([[*gprim_pos]])
             gprim_quat = gprim_transform.ExtractRotationQuat()

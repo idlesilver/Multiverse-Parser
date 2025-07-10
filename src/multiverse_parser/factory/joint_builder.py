@@ -340,10 +340,10 @@ class JointBuilder:
         self._joint.GetBody1Rel().SetTargets([self.child_prim.GetPath()])
 
         body1_transform = xform_cache.GetLocalToWorldTransform(self.parent_prim)
-        body1_rot = body1_transform.ExtractRotationQuat()
+        body1_rot = body1_transform.RemoveScaleShear().ExtractRotationQuat()
 
         body2_transform = xform_cache.GetLocalToWorldTransform(self.child_prim)
-        body1_to_body2_transform = body2_transform * body1_transform.GetInverse()
+        body1_to_body2_transform = (body2_transform * body1_transform.GetInverse()).RemoveScaleShear()
         body1_to_body2_pos = body1_to_body2_transform.ExtractTranslation()
         body1_to_body2_rot = body1_to_body2_transform.ExtractRotationQuat()
 

@@ -42,9 +42,8 @@ def get_relative(from_prim, to_prim):
 class LightwheelImporter(Factory):
     stage: Usd.Stage # type: ignore
     parent_map: Dict[Usd.Prim, Usd.Prim] # type: ignore
-    max_mesh_count: int = 1000
-    mesh_count: int = 0
     name_map: Dict[Sdf.Path, str] # type: ignore
+    geom_body_map: Dict[Usd.Prim, Usd.Prim] # type: ignore
 
     def __init__(
             self,
@@ -55,6 +54,7 @@ class LightwheelImporter(Factory):
             default_rgba: Optional[numpy.ndarray] = None,
             black_list_names: Optional[List[str]] = None,
     ) -> None:
+        self.black_list_names = black_list_names
         self._stage = Usd.Stage.Open(file_path) # type: ignore
 
         default_prim = self.stage.GetDefaultPrim()
@@ -63,7 +63,7 @@ class LightwheelImporter(Factory):
         self.name_map = {default_prim.GetPath(): model_name}
         for prim in self.stage.Traverse():
             assert prim.IsValid(), f"Invalid prim found in stage: {prim.GetPath()}"
-            if any(black_list_name in prim.GetName() for black_list_name in black_list_names) if black_list_names is not None else False:
+            if any(black_list_name in str(prim.GetPath()) for black_list_name in black_list_names) if black_list_names is not None else False:
                 continue
             if not prim.GetParent().IsA(UsdGeom.Xform) and not prim.GetParent().IsA(UsdGeom.Scope):
                 continue
@@ -86,6 +86,7 @@ class LightwheelImporter(Factory):
             inertia_source=inertia_source
         ))
         self.parent_map = {}
+        self.geom_body_map = {}
 
     def import_model(self, save_file_path: Optional[str] = None) -> str:
         self._world_builder = WorldBuilder(self.tmp_usd_file_path)
@@ -104,9 +105,17 @@ class LightwheelImporter(Factory):
 
         for prim_path in self.name_map.keys():
             prim = self.stage.GetPrimAtPath(prim_path)
-            self._import_body(body_prim=prim)
+            if prim.IsA(UsdGeom.Xform) or prim.IsA(UsdGeom.Scope):
+                self._import_body(body_prim=prim)
+
+        for prim_path in list(self.name_map.keys()):
+            prim = self.stage.GetPrimAtPath(prim_path)
+            if prim.IsA(UsdGeom.Gprim):
+                self._import_geom(gprim_prim=prim)
 
         for joint_prim in [joint_prim for joint_prim in self.stage.Traverse() if joint_prim.IsA(UsdPhysics.Joint)]: # type: ignore
+            if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in self.black_list_names) if self.black_list_names is not None else False:
+                continue
             self._import_joint(joint_prim=joint_prim)
 
         self.world_builder.export()
@@ -119,23 +128,19 @@ class LightwheelImporter(Factory):
         if body_prim != self.stage.GetDefaultPrim():
             imported_body_names = [body_builder.xform.GetPrim().GetName() for body_builder in self.world_builder.body_builders]
             body_name = self.name_map[body_prim.GetPath()]
-            if body_name in imported_body_names:
-                logging.info(f"Body {body_prim.GetPath()} already imported as {body_name}, skipping...")
-                return
-            logging.info(f"Importing body: {body_prim.GetPath()} as {self.name_map[body_prim.GetPath()]}...")
-            if self.parent_map.get(body_prim) is None:
-                parent_prim = body_prim.GetParent()
-            else:
-                parent_prim = self.parent_map[body_prim]
-            if parent_prim.GetPath() not in self.name_map:
-                logging.warning(f"Parent prim {parent_prim.GetPath()} not found in name map, skipping body import.")
-                return
+            assert body_name not in imported_body_names, f"Body {body_name} already imported."
+            parent_prim = self.parent_map.get(body_prim, body_prim.GetParent())
+            while parent_prim.IsA(UsdGeom.Mesh):
+                parent_prim = parent_prim.GetParent()
+                assert not parent_prim.IsPseudoRoot(), f"Parent prim of {body_prim.GetPath()} is pseudo root, cannot find body."
+            assert parent_prim.GetPath() in self.name_map, f"Parent prim {parent_prim.GetPath()} not found in name map."
             parent_body_name = self.name_map[parent_prim.GetPath()]
-            if parent_body_name not in [body_builder.xform.GetPrim().GetName() for body_builder in self.world_builder.body_builders]:
+            if parent_body_name not in imported_body_names:
                 self._import_body(body_prim=parent_prim)
+            logging.warning(f"Importing body: {body_prim.GetPath()} as {body_name} with parent {parent_body_name}...")
             body_builder = self.world_builder.add_body(body_name=body_name,
                                                        parent_body_name=parent_body_name)
-            
+
             parent_to_body_transformation = get_relative(from_prim=parent_prim, to_prim=body_prim)
             parent_scale = numpy.array([xform_cache.GetLocalToWorldTransform(parent_prim).GetRow(i).GetLength() for i in range(3)])
             body_scale = numpy.array([parent_to_body_transformation.GetRow(i).GetLength() for i in range(3)])
@@ -154,46 +159,111 @@ class LightwheelImporter(Factory):
             body_builder.xform.ClearXformOpOrder()
             body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
 
-            if body_prim.IsA(UsdGeom.Gprim):
-                body_scale = numpy.array([xform_cache.GetLocalToWorldTransform(body_prim).GetRow(i).GetLength() for i in range(3)])
-                body_scale_mat = numpy.array([[xform_cache.GetLocalToWorldTransform(body_prim).GetRow(i)[j] for i in range(3)] for j in range(3)])
-                det_body_scale = numpy.linalg.det(body_scale_mat)
-                if det_body_scale < 0:
-                    logging.warning(f"Body {body_prim.GetPath()} has negative scale, flipping the sign from {body_scale} to {-body_scale}.")
-                    body_scale = -body_scale
-                geom_scale = Gf.Matrix4d()
-                geom_scale.SetScale(Gf.Vec3d(*body_scale))
-                self._import_geom(gprim_prim=body_prim, body_builder=body_builder, geom_scale=geom_scale)
-
-    def _import_geom(self, gprim_prim: Usd.Prim, body_builder: BodyBuilder, geom_scale: Gf.Matrix4d) -> None:
+    def _import_geom(self, gprim_prim: Usd.Prim) -> None: # type: ignore
         if not gprim_prim.IsA(UsdGeom.Mesh):
-            logging.warning(f"Geometry {gprim_prim.GetName()} is not a mesh, skipping import.")
+            logging.warning(f"Prim {gprim_prim.GetPath()} is not a mesh.")
             return
-        logging.info(f"Importing geometry: {gprim_prim.GetPath()}...")
-        gprim = UsdGeom.Gprim(gprim_prim)
-        # geom_is_visible = gprim.GetVisibilityAttr().Get() != UsdGeom.Tokens.invisible
-        geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI(gprim_prim).GetCollisionEnabledAttr().Get()
-        geom_is_visible = not geom_is_collidable 
-        if gprim_prim.IsA(UsdGeom.Cube):
-            geom_type = GeomType.CUBE
-        elif gprim_prim.IsA(UsdGeom.Sphere):
-            geom_type = GeomType.SPHERE
-        elif gprim_prim.IsA(UsdGeom.Cylinder):
-            geom_type = GeomType.CYLINDER
-        elif gprim_prim.IsA(UsdGeom.Mesh):
-            geom_type = GeomType.MESH
+        if gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(gprim_prim).GetRigidBodyEnabledAttr().Get():
+            new_body_name = gprim_prim.GetName()
+
+            idx = 0
+            while new_body_name in self.name_map.values():
+                new_body_name = f"{gprim_prim.GetName()}_{idx}"
+                idx += 1
+            parent_prim = self.parent_map.get(gprim_prim, gprim_prim.GetParent())
+            parent_body_name = self.name_map[parent_prim.GetPath()]
+            imported_body_names = [body_builder.xform.GetPrim().GetName() for body_builder in
+                                   self.world_builder.body_builders]
+            if parent_body_name not in imported_body_names:
+                self._import_body(body_prim=parent_prim)
+            logging.warning(f"Importing body: {new_body_name} with parent {parent_body_name}...")
+            body_builder = self.world_builder.add_body(body_name=new_body_name,
+                                                       parent_body_name=parent_body_name)
+
+            parent_to_body_transformation = get_relative(from_prim=parent_prim, to_prim=gprim_prim)
+            parent_scale = numpy.array(
+                [xform_cache.GetLocalToWorldTransform(parent_prim).GetRow(i).GetLength() for i in range(3)])
+            body_scale = numpy.array([parent_to_body_transformation.GetRow(i).GetLength() for i in range(3)])
+            body_scale_mat = numpy.array(
+                [[xform_cache.GetLocalToWorldTransform(gprim_prim).GetRow(i)[j] for i in range(3)] for j in range(3)])
+            det_body_scale = numpy.linalg.det(body_scale_mat)
+            if det_body_scale < 0:
+                logging.warning(
+                    f"Body {gprim_prim.GetPath()} has negative scale, flipping the sign from {body_scale} to {-body_scale}.")
+                body_scale = -body_scale
+
+            mat_scale = Gf.Matrix4d()
+            mat_scale.SetScale(Gf.Vec3d(*1.0 / body_scale))
+            parent_to_body_transformation = mat_scale * parent_to_body_transformation
+            parent_to_body_translate = numpy.array([parent_to_body_transformation.GetRow(3)[i] for i in range(3)])
+            parent_to_body_translate *= parent_scale
+            parent_to_body_transformation.SetTranslateOnly(Gf.Vec3d(*parent_to_body_translate))
+            body_builder.xform.ClearXformOpOrder()
+            body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
+            xform_prim = body_builder.xform.GetPrim()
+            self.name_map[xform_prim.GetPath()] = new_body_name
         else:
-            raise NotImplementedError(f"Geometry type {gprim_prim.GetTypeName()} is not supported yet.")
-        
-        geom_rgba = self.config.default_rgba
-        geom_density = 1000.0
-        geom_property = GeomProperty(geom_type=geom_type,
-                                     is_visible=geom_is_visible,
-                                     is_collidable=geom_is_collidable,
-                                     rgba=geom_rgba,
-                                     density=geom_density)
+            xform_prim = gprim_prim
+        while xform_prim.IsA(UsdGeom.Mesh):
+            xform_prim = xform_prim.GetParent()
+            assert not xform_prim.IsPseudoRoot(), f"Body prim of {gprim_prim.GetPath()} is pseudo root, cannot find body."
+        if xform_prim.GetPath() not in self.name_map:
+            logging.warning(f"Body prim {xform_prim.GetPath()} not found in name map, skipping geometry import for {gprim_prim.GetPath()}.")
+            return
+        body_name = self.name_map[xform_prim.GetPath()]
+        body_builder = self.world_builder.get_body_builder(body_name=body_name)
+
+        geom_name = self.name_map[gprim_prim.GetPath()]
+        if geom_name not in body_builder._geom_builders:
+            logging.info(f"Importing geometry: {gprim_prim.GetPath()} as {geom_name}...")
+            geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI(gprim_prim).GetCollisionEnabledAttr().Get()
+            geom_is_visible = True
+            if gprim_prim.IsA(UsdGeom.Cube):
+                geom_type = GeomType.CUBE
+            elif gprim_prim.IsA(UsdGeom.Sphere):
+                geom_type = GeomType.SPHERE
+            elif gprim_prim.IsA(UsdGeom.Cylinder):
+                geom_type = GeomType.CYLINDER
+            elif gprim_prim.IsA(UsdGeom.Mesh):
+                geom_type = GeomType.MESH
+            else:
+                raise NotImplementedError(f"Geometry type {gprim_prim.GetTypeName()} is not supported yet.")
+
+            geom_rgba = self.config.default_rgba
+            geom_density = 1000.0
+            geom_property = GeomProperty(geom_type=geom_type,
+                                         is_visible=geom_is_visible,
+                                         is_collidable=geom_is_collidable,
+                                         rgba=geom_rgba,
+                                         density=geom_density)
+            geom_builder = body_builder.add_geom(geom_name=geom_name,
+                                                 geom_property=geom_property)
+            geom_builder.build()
+            geom_scale = numpy.array(
+                [xform_cache.GetLocalToWorldTransform(gprim_prim).GetRow(i).GetLength() for i in range(3)])
+            geom_scale_mat = numpy.array(
+                [[xform_cache.GetLocalToWorldTransform(gprim_prim).GetRow(i)[j] for i in range(3)] for j in range(3)])
+            det_geom_scale = numpy.linalg.det(geom_scale_mat)
+            if det_geom_scale < 0:
+                logging.warning(
+                    f"Geom {gprim_prim.GetPath()} has negative scale, flipping the sign from {geom_scale} to {-geom_scale}.")
+                geom_scale = -geom_scale
+            if not gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) or not UsdPhysics.RigidBodyAPI(gprim_prim).GetRigidBodyEnabledAttr().Get():
+                geom_transformation = get_relative(from_prim=body_builder.xform.GetPrim(), to_prim=gprim_prim).RemoveScaleShear()
+                geom_pos = geom_transformation.ExtractTranslation()
+                geom_pos = numpy.array([*geom_pos])
+                geom_quat = geom_transformation.ExtractRotationQuat()
+                geom_quat = numpy.array([*geom_quat.GetImaginary(), geom_quat.GetReal()])
+                geom_builder.set_transform(pos=geom_pos, quat=geom_quat, scale=geom_scale)
+            else:
+                geom_builder.set_transform(scale=geom_scale)
+            self.geom_body_map[gprim_prim] = body_builder.xform.GetPrim()
+        else:
+            geom_builder = body_builder.get_geom_builder(geom_name=geom_name)
+
         mesh_file_path, mesh_src_path = get_usd_mesh_file_path(gprim_prim=gprim_prim)
-        logging.info(f"Importing mesh: {mesh_src_path} from {mesh_file_path}")
+        mesh_name = f"SM_{self.name_map[gprim_prim.GetPath()]}"
+        logging.info(f"Importing mesh: {mesh_src_path} from {mesh_file_path} as {mesh_name}...")
         mesh = UsdGeom.Mesh(gprim_prim)
         points = mesh.GetPointsAttr().Get()
         assert points is not None, "Mesh points cannot be None"
@@ -201,7 +271,7 @@ class LightwheelImporter(Factory):
         if normals is None:
             normals = gprim_prim.GetAttribute("primvars:normals").Get()
         assert normals is not None, "Mesh normals cannot be None"
-        
+
         face_vertex_counts = mesh.GetFaceVertexCountsAttr().Get()
         assert face_vertex_counts is not None, "Mesh face vertex counts cannot be None"
         face_vertex_indices = mesh.GetFaceVertexIndicesAttr().Get()
@@ -210,19 +280,13 @@ class LightwheelImporter(Factory):
                                      normals=numpy.array(normals),
                                      face_vertex_counts=numpy.array(face_vertex_counts),
                                      face_vertex_indices=numpy.array(face_vertex_indices))
-        mesh_name = self.name_map[gprim_prim.GetPath()]
         mesh_property.mesh_file_name = mesh_name
         if mesh_property.points.size == 0 or mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
             # TODO: Fix empty mesh
             logging.warning(f"Mesh {gprim_prim.GetName()} has no points or face vertex counts, skipping import.")
             return
-
-        geom_builder = body_builder.add_geom(geom_name=f"{mesh_name}",
-                                             geom_property=geom_property)
-        geom_builder.build()
         geom_builder.add_mesh(mesh_name=mesh_name,
                               mesh_property=mesh_property)
-        geom_builder.gprim.AddTransformOp().Set(geom_scale)
 
     def _import_joint(self, joint_prim: Usd.Prim) -> None: # type: ignore
         if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint):
@@ -230,13 +294,24 @@ class LightwheelImporter(Factory):
         logging.info(f"Importing joint: {joint_prim.GetPath()}...")
         joint = UsdPhysics.Joint(joint_prim)
         child_prim_path = joint.GetBody1Rel().GetTargets()[0]
-        child_prim_name = self.name_map[child_prim_path]
-        joint_name = f"{child_prim_name}_{joint.GetPrim().GetName()}"
-        child_body_builder = self.world_builder.get_body_builder(body_name=child_prim_name)
-        child_prim = child_body_builder.xform.GetPrim()
-        parent_prim_name = self.parent_map[self.stage.GetPrimAtPath(child_prim_path)].GetName()
-        parent_body_builder = self.world_builder.get_body_builder(body_name=parent_prim_name)
-        parent_prim = parent_body_builder.xform.GetPrim()
+        child_prim = self.stage.GetPrimAtPath(child_prim_path)
+        if child_prim.IsA(UsdGeom.Gprim):
+            joint_transformation = xform_cache.GetLocalToWorldTransform(joint_prim)
+            joint_scale = numpy.array([joint_transformation.GetRow(i).GetLength() for i in range(3)])
+            joint_scale_mat = numpy.array([[joint_transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
+            det_joint_scale = numpy.linalg.det(joint_scale_mat)
+            if det_joint_scale < 0:
+                logging.warning(f"Joint {joint_prim.GetPath()} has negative scale, flipping the sign from {joint_scale} to {-joint_scale}.")
+                joint_scale = -joint_scale
+            joint_pos = joint.GetLocalPos0Attr().Get()
+            joint_pos = numpy.array([*joint_pos]) * joint_scale
+            child_prim = self.geom_body_map[child_prim]
+        else:
+            joint_pos = numpy.array([0.0, 0.0, 0.0])
+        child_body_name = child_prim.GetName()
+        joint_name = f"{child_body_name}_{joint.GetPrim().GetName()}"
+        child_body_builder = self.world_builder.get_body_builder(body_name=child_body_name)
+        parent_prim = child_prim.GetParent()
 
         if joint_prim.IsA(UsdPhysics.RevoluteJoint):
             joint = UsdPhysics.RevoluteJoint(joint)
@@ -254,6 +329,7 @@ class LightwheelImporter(Factory):
 
         joint_property = JointProperty(joint_parent_prim=parent_prim,
                                        joint_child_prim=child_prim,
+                                       joint_pos=joint_pos,
                                        joint_axis=JointAxis.from_string(joint_axis),
                                        joint_type=joint_type)
         joint_builder = child_body_builder.add_joint(joint_name=joint_name,

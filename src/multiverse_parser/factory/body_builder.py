@@ -135,7 +135,7 @@ class BodyBuilder:
 
     def get_geom_builder(self, geom_name: str) -> GeomBuilder:
         geom_name = modify_name(in_name=geom_name)
-        if geom_name not in self._joint_builders:
+        if geom_name not in self._geom_builders:
             raise ValueError(f"Geom {geom_name} not found in {self.__class__.__name__}.")
         return self._geom_builders[geom_name]
 
