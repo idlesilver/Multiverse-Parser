@@ -230,11 +230,13 @@ class LightwheelImporter(Factory):
         logging.info(f"Importing joint: {joint_prim.GetPath()}...")
         joint = UsdPhysics.Joint(joint_prim)
         child_prim_path = joint.GetBody1Rel().GetTargets()[0]
-        child_prim = self.stage.GetPrimAtPath(child_prim_path)
         child_prim_name = self.name_map[child_prim_path]
-        child_body_builder = self.world_builder.get_body_builder(body_name=child_prim_name)
         joint_name = f"{child_prim_name}_{joint.GetPrim().GetName()}"
-        parent_prim = self.parent_map[child_prim]
+        child_body_builder = self.world_builder.get_body_builder(body_name=child_prim_name)
+        child_prim = child_body_builder.xform.GetPrim()
+        parent_prim_name = self.parent_map[self.stage.GetPrimAtPath(child_prim_path)].GetName()
+        parent_body_builder = self.world_builder.get_body_builder(body_name=parent_prim_name)
+        parent_prim = parent_body_builder.xform.GetPrim()
 
         if joint_prim.IsA(UsdPhysics.RevoluteJoint):
             joint = UsdPhysics.RevoluteJoint(joint)
