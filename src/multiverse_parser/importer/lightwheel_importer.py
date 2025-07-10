@@ -97,7 +97,7 @@ class LightwheelImporter(Factory):
             child_prim = self.stage.GetPrimAtPath(UsdPhysics.Joint(joint_prim).GetBody1Rel().GetTargets()[0]) # type: ignore
             parent_prim_paths = UsdPhysics.Joint(joint_prim).GetBody0Rel().GetTargets() # type: ignore
             if len(parent_prim_paths) == 0:
-                parent_prim = root_prim
+                parent_prim = child_prim.GetParent()
             else:
                 parent_prim = self.stage.GetPrimAtPath(parent_prim_paths[0])
             self.parent_map[child_prim] = parent_prim
