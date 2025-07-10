@@ -295,7 +295,9 @@ class LightwheelImporter(Factory):
         joint = UsdPhysics.Joint(joint_prim)
         child_prim_path = joint.GetBody1Rel().GetTargets()[0]
         child_prim = self.stage.GetPrimAtPath(child_prim_path)
+        parent_prim = self.parent_map[child_prim]
         if child_prim.IsA(UsdGeom.Gprim):
+            child_prim = self.geom_body_map[child_prim]
             joint_transformation = xform_cache.GetLocalToWorldTransform(joint_prim)
             joint_scale = numpy.array([joint_transformation.GetRow(i).GetLength() for i in range(3)])
             joint_scale_mat = numpy.array([[joint_transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
@@ -303,9 +305,19 @@ class LightwheelImporter(Factory):
             if det_joint_scale < 0:
                 logging.warning(f"Joint {joint_prim.GetPath()} has negative scale, flipping the sign from {joint_scale} to {-joint_scale}.")
                 joint_scale = -joint_scale
-            joint_pos = joint.GetLocalPos0Attr().Get()
+
+            if parent_prim.IsA(UsdGeom.Gprim):
+                parent_prim = self.geom_body_map[parent_prim]
+            body1_transform = xform_cache.GetLocalToWorldTransform(parent_prim)
+            body1_rot = body1_transform.ExtractRotationQuat()
+
+            body2_transform = xform_cache.GetLocalToWorldTransform(child_prim)
+            body1_to_body2_transform = body2_transform * body1_transform.GetInverse()
+            body1_to_body2_pos = body1_to_body2_transform.ExtractTranslation()
+
+            joint_pos = body1_rot.GetInverse().Transform(
+                Gf.Vec3d(joint.GetLocalPos0Attr().Get()) - body1_to_body2_pos)
             joint_pos = numpy.array([*joint_pos]) * joint_scale
-            child_prim = self.geom_body_map[child_prim]
         else:
             joint_pos = numpy.array([0.0, 0.0, 0.0])
         child_body_name = child_prim.GetName()
