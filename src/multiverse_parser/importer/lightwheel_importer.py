@@ -314,6 +314,7 @@ class LightwheelImporter(Factory):
         child_body_name = child_prim.GetName()
         joint_name = f"{child_body_name}_{joint.GetPrim().GetName()}"
         child_body_builder = self.world_builder.get_body_builder(body_name=child_body_name)
+        child_prim = child_body_builder.xform.GetPrim()
         parent_prim = child_prim.GetParent()
 
         if joint_prim.IsA(UsdPhysics.RevoluteJoint):
