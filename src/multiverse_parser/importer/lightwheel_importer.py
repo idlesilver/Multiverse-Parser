@@ -341,7 +341,7 @@ class LightwheelImporter(Factory):
             joint_builder.joint.CreateUpperLimitAttr(joint.GetUpperLimitAttr().Get())
             joint_builder.joint.CreateLowerLimitAttr(joint.GetLowerLimitAttr().Get())
 
-        child_body_builder.compute_and_set_inertial(inertia_source=self._config.inertia_source)
+        # child_body_builder.compute_and_set_inertial(inertia_source=self._config.inertia_source)
 
     @property
     def stage(self) -> Usd.Stage:  # type: ignore
