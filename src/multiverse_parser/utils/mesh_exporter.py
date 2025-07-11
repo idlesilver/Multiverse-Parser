@@ -49,7 +49,7 @@ if {merge_mesh}:
         bpy.ops.object.join()
 out_usd_dir = os.path.dirname('{out_usd}')
 os.makedirs(out_usd_dir, exist_ok=True)
-bpy.ops.wm.usd_export(filepath='{out_usd}', selected_objects_only=True, overwrite_textures=True, root_prim_path='')
+bpy.ops.wm.usd_export(filepath='{out_usd}', selected_objects_only=True, overwrite_textures=True, root_prim_path='', merge_parent_xform=True)
 """
 
 

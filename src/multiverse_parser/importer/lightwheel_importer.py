@@ -12,7 +12,7 @@ from ..factory import (WorldBuilder,
                        JointAxis, JointType, JointProperty,
                        GeomType, GeomProperty,
                        MeshProperty)
-from ..utils import xform_cache
+from ..utils import xform_cache, triangulate_mesh
 
 
 def get_usd_mesh_file_path(gprim_prim: Usd.Prim) -> (str, Sdf.Path):  # type: ignore
@@ -124,7 +124,7 @@ class LightwheelImporter(Factory):
             if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in
                    self.black_list_names) if self.black_list_names is not None else False:
                 continue
-            self._import_joint(joint_prim=joint_prim)
+            self._import_joint_and_inertial(joint_prim=joint_prim)
 
         self.world_builder.export()
 
@@ -146,7 +146,7 @@ class LightwheelImporter(Factory):
             parent_body_name = self.name_map[parent_prim.GetPath()]
             if parent_body_name not in imported_body_names:
                 self._import_body(body_prim=parent_prim)
-            logging.warning(f"Importing body: {body_prim.GetPath()} as {body_name} with parent {parent_body_name}...")
+            logging.info(f"Importing body: {body_prim.GetPath()} as {body_name} with parent {parent_body_name}...")
             body_builder = self.world_builder.add_body(body_name=body_name,
                                                        parent_body_name=parent_body_name)
 
@@ -226,7 +226,8 @@ class LightwheelImporter(Factory):
                                          density=geom_density)
             geom_builder = body_builder.add_geom(geom_name=geom_name,
                                                  geom_property=geom_property)
-            geom_builder.build()
+            geom_builder.build(
+                approximation_method=UsdPhysics.MeshCollisionAPI(gprim_prim).GetApproximationAttr().Get())
             geom_scale = numpy.array(
                 [xform_cache.GetLocalToWorldTransform(gprim_prim).GetRow(i).GetLength() for i in range(3)])
             geom_scale_mat = numpy.array(
@@ -247,7 +248,7 @@ class LightwheelImporter(Factory):
                 geom_builder.set_transform(pos=geom_pos, quat=geom_quat, scale=geom_scale)
             else:
                 geom_builder.set_transform(scale=geom_scale)
-            geom_builder.gprim.GetPurposeAttr().Set(UsdGeom.Gprim(gprim_prim).GetPurposeAttr().Get())
+            geom_builder.gprim.CreatePurposeAttr(UsdGeom.Gprim(gprim_prim).GetPurposeAttr().Get())
             self.geom_body_map[gprim_prim] = body_builder.xform.GetPrim()
         else:
             geom_builder = body_builder.get_geom_builder(geom_name=geom_name)
@@ -279,7 +280,7 @@ class LightwheelImporter(Factory):
         geom_builder.add_mesh(mesh_name=mesh_name,
                               mesh_property=mesh_property)
 
-    def _import_joint(self, joint_prim: Usd.Prim) -> None:  # type: ignore
+    def _import_joint_and_inertial(self, joint_prim: Usd.Prim) -> None:  # type: ignore
         if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint):
             return
         logging.info(f"Importing joint: {joint_prim.GetPath()}...")
@@ -339,6 +340,8 @@ class LightwheelImporter(Factory):
         if joint_prim.IsA(UsdPhysics.RevoluteJoint) or joint_prim.IsA(UsdPhysics.PrismaticJoint):
             joint_builder.joint.CreateUpperLimitAttr(joint.GetUpperLimitAttr().Get())
             joint_builder.joint.CreateLowerLimitAttr(joint.GetLowerLimitAttr().Get())
+
+        child_body_builder.compute_and_set_inertial(inertia_source=self._config.inertia_source)
 
     @property
     def stage(self) -> Usd.Stage:  # type: ignore

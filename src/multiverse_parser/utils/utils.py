@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-import os
 import subprocess
+from typing import List
 
 import numpy
 from scipy.spatial.transform import Rotation
 
-from pxr import UsdGeom, Gf
-
 from multiverse_parser import logging
+from pxr import UsdGeom, Gf
 from .mesh_exporter import export_usd
 from .mesh_importer import import_usd
 
@@ -25,6 +24,7 @@ def get_transform(pos: numpy.ndarray, quat: numpy.ndarray, scale: numpy.ndarray)
     mat_scale = Gf.Matrix4d()
     mat_scale.SetScale(Gf.Vec3d(*scale))
     return mat_scale * mat
+
 
 def diagonalize_inertia(inertia_tensor) -> (numpy.ndarray, numpy.ndarray):
     diagonal_inertia, eigenvectors = numpy.linalg.eigh(inertia_tensor)
@@ -139,34 +139,13 @@ def shift_center_of_mass(center_of_mass: numpy.ndarray,
     return rotation.apply(center_of_mass) + pos
 
 
-def scale_mesh(usd_file_path: str, scale: tuple) -> str:
-    if not numpy.isclose(scale, numpy.array([1.0, 1.0, 1.0])).all():
-        cmd = import_usd(in_usds=[usd_file_path])
-        cmd += f"""
-selected_object = bpy.context.object
-selected_object.scale = {scale}
-
-if selected_object.scale[0] * selected_object.scale[1] * selected_object.scale[2] < 0:
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.mesh.flip_normals()
-    bpy.ops.object.mode_set(mode="OBJECT")
-
-selected_object = bpy.context.object
-bpy.ops.object.transform_apply(scale=True)
-        """
-        mesh_name = os.path.splitext(os.path.basename(usd_file_path))[0]
-        mesh_name += "_" + "_".join(map(str, scale))
-        mesh_name = modify_name(mesh_name)
-        usd_file_path = os.path.join(os.path.dirname(usd_file_path), f"{mesh_name}.usda")
-        cmd += export_usd(usd_file_path)
-        cmd = ["blender",
-               "--background",
-               "--python-expr",
-               f"import bpy"
-               f"{cmd}"]
-
-        process = subprocess.Popen(cmd)
-        process.wait()
-
-    return usd_file_path
+def triangulate_mesh(in_usd_file: str, out_usd_file: str) -> None:
+    cmd = import_usd(in_usds=[in_usd_file])
+    cmd += export_usd(out_usd=out_usd_file)
+    cmd = ["blender",
+           "--background",
+           "--python-expr",
+           f"import bpy"
+           f"{cmd}"]
+    process = subprocess.Popen(cmd)
+    process.wait()

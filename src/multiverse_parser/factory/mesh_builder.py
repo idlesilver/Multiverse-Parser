@@ -6,6 +6,7 @@ from typing import Optional, Dict
 import numpy
 import os
 
+from multiverse_parser.utils import triangulate_mesh
 from pxr import Usd, UsdGeom, Sdf, UsdShade
 
 from multiverse_parser import logging
@@ -161,6 +162,27 @@ class MeshBuilder:
     mesh: UsdGeom.Mesh
 
     def __init__(self, stage, mesh_property: MeshProperty) -> None:
+        if not all(face_vertex_count == 3 for face_vertex_count in mesh_property.face_vertex_counts):
+            logging.warning("Only triangular meshes are supported, triangulating the mesh...")
+            file_path = stage.GetRootLayer().realPath
+            tmp_file_path_raw = f"{file_path.replace('.usda', '_raw.usda')}"
+            tmp_stage = Usd.Stage.CreateNew(tmp_file_path_raw)
+            tmp_mesh = UsdGeom.Mesh.Define(tmp_stage, stage.GetDefaultPrim().GetPath())
+            tmp_stage.SetDefaultPrim(tmp_mesh.GetPrim())
+            UsdGeom.SetStageUpAxis(tmp_stage, UsdGeom.Tokens.z)
+            tmp_mesh.CreatePointsAttr(mesh_property.points)
+            tmp_mesh.CreateNormalsAttr(mesh_property.normals)
+            tmp_mesh.SetNormalsInterpolation(UsdGeom.Tokens.faceVarying)
+            tmp_mesh.CreateFaceVertexCountsAttr(mesh_property.face_vertex_counts)
+            tmp_mesh.CreateFaceVertexIndicesAttr(mesh_property.face_vertex_indices)
+            tmp_stage.GetRootLayer().Save()
+            tmp_file_path_triangulated = f"{file_path.replace('.usda', '_triangulated.usda')}"
+            triangulate_mesh(in_usd_file=tmp_file_path_raw, out_usd_file=tmp_file_path_triangulated)
+            mesh_property = MeshProperty.from_mesh_file_path(
+                mesh_file_path=tmp_file_path_triangulated,
+                mesh_path=stage.GetDefaultPrim().GetPath()
+            )
+        mesh_property.check_validity()
         self._mesh_property = mesh_property
         self._mesh = UsdGeom.Mesh(stage.GetDefaultPrim())
 
