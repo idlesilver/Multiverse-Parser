@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from typing import Optional, Tuple
-from xml.etree import ElementTree as ET
 from xml.dom import minidom
+from xml.etree import ElementTree as ET
 
 import numpy
 from numpy import radians
 
 from multiverse_parser import logging
+from pxr import UsdMujoco, UsdUrdf, Gf, UsdPhysics, UsdGeom, Usd, UsdShade
 from ..factory import Factory
 from ..factory import (JointBuilder, JointType,
                        GeomBuilder, GeomType,
-                       PointsBuilder, PointProperty,
-                       MaterialProperty)
+                       PointsBuilder, MaterialProperty)
 from ..utils import xform_cache, modify_name
-
-from pxr import UsdMujoco, UsdUrdf, Gf, UsdPhysics, UsdGeom, Usd, UsdShade, Sdf
 
 
 def build_inertial(xform_prim: Usd.Prim, body: ET.Element) -> None:
@@ -144,7 +142,8 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder) -> UsdMujoco.MujocoGeomAPI:
                 geom_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
                 det_geom_size = numpy.linalg.det(geom_size_mat)
                 if det_geom_size < 0:
-                    logging.warning(f"Geom {gprim_prim.GetName()} has negative scale, flipping the sign from {geom_size} to {-geom_size}.")
+                    logging.warning(
+                        f"Geom {gprim_prim.GetName()} has negative scale, flipping the sign from {geom_size} to {-geom_size}.")
                     geom_size = -geom_size
             geom_type = "box"
         elif geom_builder.type == GeomType.SPHERE:
@@ -170,7 +169,8 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder) -> UsdMujoco.MujocoGeomAPI:
                 geom_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
                 det_geom_size = numpy.linalg.det(geom_size_mat)
                 if det_geom_size < 0:
-                    logging.warning(f"Geom {gprim_prim.GetName()} has negative scale, flipping the sign from {geom_size} to {-geom_size}.")
+                    logging.warning(
+                        f"Geom {gprim_prim.GetName()} has negative scale, flipping the sign from {geom_size} to {-geom_size}.")
                     geom_size = -geom_size
             geom_type = "mesh"
         else:
@@ -304,11 +304,23 @@ class MjcfExporter:
         compiler.set("boundinertia", "0.000001")
 
         default = ET.SubElement(self.root, "default")
+        default_model = ET.SubElement(default, "default")
+        default_model.set("class", f"{self.factory.config.model_name}")
+        default_geom = ET.SubElement(default_model, "geom")
+        default_geom.set(
+            "group",
+            "1"
+        )
+
         default_visual = ET.SubElement(default, "default")
         default_visual.set("class", f"{self.factory.config.model_name}_visual")
         default_visual_geom = ET.SubElement(default_visual, "geom")
         default_visual_geom.set("contype", "0")
         default_visual_geom.set("conaffinity", "0")
+        default_visual_geom.set(
+            "group",
+            "2"
+        )
 
         default_collision = ET.SubElement(default, "default")
         default_collision.set("class", f"{self.factory.config.model_name}_collision")
@@ -427,7 +439,8 @@ class MjcfExporter:
                         mesh_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
                         det_geom_size = numpy.linalg.det(mesh_size_mat)
                         if det_geom_size < 0:
-                            logging.warning(f"Mesh {mesh_file_path} has negative scale, flipping the sign from {mesh_scale} to {tuple(-s for s in mesh_scale)}.")
+                            logging.warning(
+                                f"Mesh {mesh_file_path} has negative scale, flipping the sign from {mesh_scale} to {tuple(-s for s in mesh_scale)}.")
                             mesh_scale = tuple(-s for s in mesh_scale)
 
                     mesh_has_texture = False
@@ -586,10 +599,17 @@ class MjcfExporter:
             if rgba is not None:
                 geom.set("rgba", " ".join(map(str, rgba)))
 
-        if gprim_prim.GetPrim().HasAPI(UsdPhysics.CollisionAPI):
-            geom.set("class", f"{self.factory.config.model_name}_collision")
+        geom_is_collidable = gprim_prim.GetPrim().HasAPI(UsdPhysics.CollisionAPI) and \
+                             UsdPhysics.CollisionAPI(gprim_prim).GetCollisionEnabledAttr().Get()
+        geom_is_visible = UsdGeom.Gprim(gprim_prim).GetVisibilityAttr().Get() == UsdGeom.Tokens.inherited and \
+                          UsdGeom.Gprim(gprim_prim).GetPurposeAttr().Get() != UsdGeom.Tokens.guide
+        assert geom_is_collidable or geom_is_visible, \
+            f"Geom {geom_name} is neither collidable nor visible. Please check the USD prim {gprim_prim.GetPath()}."
+
+        if geom_is_collidable and geom_is_visible:
+            geom.set("class", f"{self.factory.config.model_name}")
         else:
-            geom.set("class", f"{self.factory.config.model_name}_visual")
+            geom.set("class", f"{self.factory.config.model_name}_{'visual' if geom_is_visible else 'collision'}")
 
     def _build_composite(self, points_builder: PointsBuilder, body: ET.Element) -> None:
         mujoco_composite_api = get_mujoco_composite_api(points_builder=points_builder)

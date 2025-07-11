@@ -159,12 +159,11 @@ class LightwheelImporter(Factory):
         if not gprim_prim.IsA(UsdGeom.Mesh):
             logging.warning(f"Prim {gprim_prim.GetPath()} is not a mesh.")
             return
-        if UsdGeom.Gprim(gprim_prim).GetPurposeAttr().Get() == UsdGeom.Tokens.guide:
-            logging.warning(f"Prim {gprim_prim.GetPath()} is a guide, skipping import.")
-            return
         if gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(
                 gprim_prim).GetRigidBodyEnabledAttr().Get():
-            parent_prim = gprim_prim.GetParent()
+            parent_prim = self.parent_map.get(gprim_prim, gprim_prim.GetParent())
+            if parent_prim.IsA(UsdGeom.Gprim) and parent_prim.GetParent() != gprim_prim.GetParent():
+                parent_prim = gprim_prim.GetParent()
             parent_body_name = self.name_map[parent_prim.GetPath()]
             imported_body_names = [body_builder.xform.GetPrim().GetName() for body_builder in
                                    self.world_builder.body_builders]
@@ -204,9 +203,9 @@ class LightwheelImporter(Factory):
         geom_name = self.name_map[gprim_prim.GetPath()]
         if geom_name not in body_builder._geom_builders:
             logging.info(f"Importing geometry: {gprim_prim.GetPath()} as {geom_name}...")
+            geom_is_visible = True
             geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI(
                 gprim_prim).GetCollisionEnabledAttr().Get()
-            geom_is_visible = True
             if gprim_prim.IsA(UsdGeom.Cube):
                 geom_type = GeomType.CUBE
             elif gprim_prim.IsA(UsdGeom.Sphere):
@@ -248,6 +247,7 @@ class LightwheelImporter(Factory):
                 geom_builder.set_transform(pos=geom_pos, quat=geom_quat, scale=geom_scale)
             else:
                 geom_builder.set_transform(scale=geom_scale)
+            geom_builder.gprim.GetPurposeAttr().Set(UsdGeom.Gprim(gprim_prim).GetPurposeAttr().Get())
             self.geom_body_map[gprim_prim] = body_builder.xform.GetPrim()
         else:
             geom_builder = body_builder.get_geom_builder(geom_name=geom_name)
