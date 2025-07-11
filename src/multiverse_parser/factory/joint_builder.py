@@ -340,15 +340,13 @@ class JointBuilder:
         self._joint.GetBody1Rel().SetTargets([self.child_prim.GetPath()])
 
         body1_transform = xform_cache.GetLocalToWorldTransform(self.parent_prim)
-        body1_rot = body1_transform.RemoveScaleShear().ExtractRotationQuat()
-
         body2_transform = xform_cache.GetLocalToWorldTransform(self.child_prim)
-        body1_to_body2_transform = (body2_transform * body1_transform.GetInverse()).RemoveScaleShear()
+        body1_to_body2_transform = body2_transform * body1_transform.GetInverse()
         body1_to_body2_pos = body1_to_body2_transform.ExtractTranslation()
         body1_to_body2_rot = body1_to_body2_transform.ExtractRotationQuat()
 
-        self._joint.CreateLocalPos0Attr(body1_rot.Transform(self.pos) + body1_to_body2_pos)
-        self._joint.CreateLocalPos1Attr(Gf.Vec3d())
+        self._joint.CreateLocalPos0Attr(self.pos + body1_to_body2_pos)
+        self._joint.CreateLocalPos1Attr(self.pos)
 
         self._joint.CreateLocalRot0Attr(Gf.Quatf(body1_to_body2_rot * self.quat))
         self._joint.CreateLocalRot1Attr(Gf.Quatf(self.quat))

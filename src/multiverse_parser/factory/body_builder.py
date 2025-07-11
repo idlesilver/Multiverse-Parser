@@ -67,6 +67,7 @@ class BodyBuilder:
             else:
                 raise ValueError(f"Prim at path {relative_to_xform.GetPath()} not found.")
 
+        self._xform.ClearXformOpOrder()
         self._xform.AddTransformOp().Set(mat)
 
     def add_joint(self, joint_name: str, joint_property: JointProperty) -> JointBuilder:
