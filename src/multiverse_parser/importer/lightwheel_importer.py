@@ -130,7 +130,7 @@ class LightwheelImporter(Factory):
             body_name = self.name_map[body_prim.GetPath()]
             assert body_name not in imported_body_names, f"Body {body_name} already imported."
             parent_prim = self.parent_map.get(body_prim, body_prim.GetParent())
-            while parent_prim.IsA(UsdGeom.Mesh):
+            while parent_prim.IsA(UsdGeom.Mesh) and parent_prim.GetName() not in imported_body_names:
                 parent_prim = parent_prim.GetParent()
                 assert not parent_prim.IsPseudoRoot(), f"Parent prim of {body_prim.GetPath()} is pseudo root, cannot find body."
             assert parent_prim.GetPath() in self.name_map, f"Parent prim {parent_prim.GetPath()} not found in name map."
@@ -164,46 +164,49 @@ class LightwheelImporter(Factory):
             logging.warning(f"Prim {gprim_prim.GetPath()} is not a mesh.")
             return
         if gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(gprim_prim).GetRigidBodyEnabledAttr().Get():
-            new_body_name = gprim_prim.GetName()
-
-            idx = 0
-            while new_body_name in self.name_map.values():
-                new_body_name = f"{gprim_prim.GetName()}_{idx}"
-                idx += 1
             parent_prim = self.parent_map.get(gprim_prim, gprim_prim.GetParent())
             parent_body_name = self.name_map[parent_prim.GetPath()]
             imported_body_names = [body_builder.xform.GetPrim().GetName() for body_builder in
                                    self.world_builder.body_builders]
             if parent_body_name not in imported_body_names:
                 self._import_body(body_prim=parent_prim)
-            logging.warning(f"Importing body: {new_body_name} with parent {parent_body_name}...")
-            body_builder = self.world_builder.add_body(body_name=new_body_name,
-                                                       parent_body_name=parent_body_name)
+            new_body_name = gprim_prim.GetName()
+            if new_body_name in imported_body_names:
+                body_builder = self.world_builder.get_body_builder(body_name=new_body_name)
+                xform_prim = body_builder.xform.GetPrim()
+            else:
+                idx = 0
+                while new_body_name in self.name_map.values():
+                    new_body_name = f"{gprim_prim.GetName()}_{idx}"
+                    idx += 1
 
-            parent_to_body_transformation = get_relative(from_prim=parent_prim, to_prim=gprim_prim)
-            parent_scale = numpy.array(
-                [xform_cache.GetLocalToWorldTransform(parent_prim).GetRow(i).GetLength() for i in range(3)])
-            body_scale = numpy.array([parent_to_body_transformation.GetRow(i).GetLength() for i in range(3)])
-            body_scale_mat = numpy.array(
-                [[xform_cache.GetLocalToWorldTransform(gprim_prim).GetRow(i)[j] for i in range(3)] for j in range(3)])
-            det_body_scale = numpy.linalg.det(body_scale_mat)
-            if det_body_scale < 0:
-                logging.warning(
-                    f"Body {gprim_prim.GetPath()} has negative scale, flipping the sign from {body_scale} to {-body_scale}.")
-                body_scale = -body_scale
+                logging.warning(f"Importing body: {new_body_name} with parent {parent_body_name}...")
+                body_builder = self.world_builder.add_body(body_name=new_body_name,
+                                                           parent_body_name=parent_body_name)
+                parent_to_body_transformation = get_relative(from_prim=parent_prim, to_prim=gprim_prim)
+                parent_scale = numpy.array(
+                    [xform_cache.GetLocalToWorldTransform(parent_prim).GetRow(i).GetLength() for i in range(3)])
+                body_scale = numpy.array([parent_to_body_transformation.GetRow(i).GetLength() for i in range(3)])
+                body_scale_mat = numpy.array(
+                    [[xform_cache.GetLocalToWorldTransform(gprim_prim).GetRow(i)[j] for i in range(3)] for j in range(3)])
+                det_body_scale = numpy.linalg.det(body_scale_mat)
+                if det_body_scale < 0:
+                    logging.warning(
+                        f"Body {gprim_prim.GetPath()} has negative scale, flipping the sign from {body_scale} to {-body_scale}.")
+                    body_scale = -body_scale
 
-            mat_scale = Gf.Matrix4d()
-            mat_scale.SetScale(Gf.Vec3d(*1.0 / body_scale))
-            parent_to_body_transformation = mat_scale * parent_to_body_transformation
-            parent_to_body_translate = numpy.array([parent_to_body_transformation.GetRow(3)[i] for i in range(3)])
-            parent_to_body_translate *= parent_scale
-            parent_to_body_transformation.SetTranslateOnly(Gf.Vec3d(*parent_to_body_translate))
-            body_builder.xform.ClearXformOpOrder()
-            body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
-            xform_prim = body_builder.xform.GetPrim()
+                mat_scale = Gf.Matrix4d()
+                mat_scale.SetScale(Gf.Vec3d(*1.0 / body_scale))
+                parent_to_body_transformation = mat_scale * parent_to_body_transformation
+                parent_to_body_translate = numpy.array([parent_to_body_transformation.GetRow(3)[i] for i in range(3)])
+                parent_to_body_translate *= parent_scale
+                parent_to_body_transformation.SetTranslateOnly(Gf.Vec3d(*parent_to_body_translate))
+                body_builder.xform.ClearXformOpOrder()
+                body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
+                xform_prim = body_builder.xform.GetPrim()
             self.name_map[xform_prim.GetPath()] = new_body_name
         else:
-            xform_prim = gprim_prim
+            xform_prim = gprim_prim.GetParent()
         while xform_prim.IsA(UsdGeom.Mesh):
             xform_prim = xform_prim.GetParent()
             assert not xform_prim.IsPseudoRoot(), f"Body prim of {gprim_prim.GetPath()} is pseudo root, cannot find body."
@@ -316,7 +319,7 @@ class LightwheelImporter(Factory):
             body1_to_body2_pos = body1_to_body2_transform.ExtractTranslation()
 
             joint_pos = body1_rot.GetInverse().Transform(
-                Gf.Vec3d(joint.GetLocalPos0Attr().Get()) - body1_to_body2_pos)
+                Gf.Vec3d(*[joint.GetLocalPos0Attr().Get()[i] - body1_to_body2_pos[i] / joint_scale[i] for i in range(3)]))
             joint_pos = numpy.array([*joint_pos]) * joint_scale
         else:
             joint_pos = numpy.array([0.0, 0.0, 0.0])
