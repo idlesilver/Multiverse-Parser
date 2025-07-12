@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
 import subprocess
-from typing import List
 
 import numpy
 from scipy.spatial.transform import Rotation
 
 from multiverse_parser import logging
-from pxr import UsdGeom, Gf
+from pxr import Usd, UsdGeom, Gf, UsdPhysics
 from .mesh_exporter import export_usd
 from .mesh_importer import import_usd
 
@@ -149,3 +148,85 @@ def triangulate_mesh(in_usd_file: str, out_usd_file: str) -> None:
            f"{cmd}"]
     process = subprocess.Popen(cmd)
     process.wait()
+
+
+def get_relative_transform(from_prim: Usd.Prim, to_prim: Usd.Prim) -> Gf.Matrix4d:  # type: ignore
+    from_prim_transform = xform_cache.GetLocalToWorldTransform(from_prim)
+    from_prim_rotation = from_prim_transform.RemoveScaleShear().ExtractRotation()
+    from_prim_scale = numpy.array([from_prim_transform.GetRow(i).GetLength() for i in range(3)])
+    if from_prim_transform.GetDeterminant3() < 0:
+        from_prim_scale = -from_prim_scale
+    from_prim_scale = numpy.linalg.norm(numpy.array([from_prim_rotation.TransformDir(
+        Gf.Vec3d(*v)) for v in numpy.eye(3) * from_prim_scale]), axis=0)
+    to_prim_transform = xform_cache.GetLocalToWorldTransform(to_prim)
+    relative_transform = (to_prim_transform * from_prim_transform.GetInverse()).RemoveScaleShear()
+    relative_translate = numpy.array([*relative_transform.ExtractTranslation()]) * numpy.array([*from_prim_scale])
+    relative_transform.SetTranslateOnly(Gf.Vec3d(*relative_translate))
+    return relative_transform
+
+
+def get_translate_and_rotvec_from_transform(transform: Gf.Matrix4d) -> (numpy.ndarray, numpy.ndarray):
+    """
+    Extract translation and rotation vector from a Gf.Matrix4d transform.
+    :param transform: Gf.Matrix4d transform
+    :return: translation (numpy.ndarray), rotation vector (numpy.ndarray)
+    """
+    translation = numpy.array(transform.ExtractTranslation())
+    rotation_quat = transform.RemoveScaleShear().ExtractRotationQuat()
+    rotation = Rotation.from_quat([rotation_quat.GetImaginary()[0], rotation_quat.GetImaginary()[1],
+                                   rotation_quat.GetImaginary()[2], rotation_quat.GetReal()])
+    rotvec = rotation.as_rotvec(degrees=True)
+    return translation, rotvec
+
+
+def validate_joint_prim(joint_prim: Usd.Prim) -> None:
+    """
+    Validate the joint prim by checking the transforms between the joint, parent, and child bodies.
+    :param joint_prim: The joint prim to validate.
+    :raises ValueError: If the joint has inconsistent transforms.
+    """
+    stage = joint_prim.GetStage()
+    joint = UsdPhysics.Joint(joint_prim)
+    child_prim_path = joint.GetBody1Rel().GetTargets()[0]
+    child_prim = stage.GetPrimAtPath(child_prim_path)
+
+    parent_prim_paths = joint.GetBody0Rel().GetTargets()
+    parent_prim = stage.GetPrimAtPath(parent_prim_paths[0]) if len(
+        parent_prim_paths) > 0 else joint_prim.GetParent()
+    parent_to_child_transform = get_relative_transform(from_prim=parent_prim,
+                                                       to_prim=child_prim)
+    joint_transform = xform_cache.GetLocalToWorldTransform(joint_prim)
+    joint_rotation = joint_transform.RemoveScaleShear().ExtractRotation()
+    joint_scale = numpy.array([joint_transform.GetRow(i).GetLength() for i in range(3)])
+    if joint_transform.GetDeterminant3() < 0:
+        joint_scale = -joint_scale
+    joint_scale = numpy.linalg.norm(
+        numpy.array([joint_rotation.TransformDir(Gf.Vec3d(*v)) for v in numpy.eye(3) * joint_scale]), axis=0)
+    parent_to_joint_quat = Gf.Quatd(joint.GetLocalRot0Attr().Get())
+    parent_to_joint_translate = Gf.Vec3d(*[joint.GetLocalPos0Attr().Get()[i] * joint_scale[i] for i in range(3)])
+    parent_to_joint_transform = Gf.Matrix4d().SetTranslateOnly(parent_to_joint_translate).SetRotateOnly(
+        parent_to_joint_quat)
+    child_to_joint_quat = Gf.Quatd(joint.GetLocalRot1Attr().Get())
+    child_to_joint_translate = Gf.Vec3d(*[joint.GetLocalPos1Attr().Get()[i] * joint_scale[i] for i in range(3)])
+    child_to_joint_transform = Gf.Matrix4d().SetTranslateOnly(child_to_joint_translate).SetRotateOnly(
+        child_to_joint_quat)
+    joint_to_child_transform = child_to_joint_transform.GetInverse()
+    parent_to_child_translate_1, parent_to_child_rotvec_1 = get_translate_and_rotvec_from_transform(
+        parent_to_child_transform)
+    parent_to_child_translate_2, parent_to_child_rotvec_2 = get_translate_and_rotvec_from_transform(
+        joint_to_child_transform * parent_to_joint_transform)
+    different_rot = (Rotation.from_rotvec(parent_to_child_rotvec_2, degrees=True) * Rotation.from_rotvec(
+        parent_to_child_rotvec_1, degrees=True).inv()).as_rotvec(degrees=True)
+    if not numpy.allclose(parent_to_child_translate_1, parent_to_child_translate_2, atol=1e-2) or \
+            numpy.linalg.norm(different_rot) > 1.0:
+        parent_to_joint_translate, parent_to_joint_rotvec = get_translate_and_rotvec_from_transform(
+            parent_to_joint_transform)
+        joint_to_child_translate, joint_to_child_rotvec = get_translate_and_rotvec_from_transform(
+            joint_to_child_transform)
+        logging.error(f"Joint {joint_prim.GetName()} has inconsistent transforms: ")
+        logging.error(f"Parent to child transform 1: {parent_to_child_translate_1}, {parent_to_child_rotvec_1}")
+        logging.error(f"Parent to joint transform: {parent_to_joint_translate}, {parent_to_joint_rotvec}")
+        logging.error(f"Joint to child transform: {joint_to_child_translate}, {joint_to_child_rotvec}")
+        logging.error(f"Parent to child transform 2: {parent_to_child_translate_2}, {parent_to_child_rotvec_2}")
+        logging.error(f"Difference: {parent_to_child_translate_1 - parent_to_child_translate_2}, {different_rot}")
+        raise ValueError(f"Joint {joint_prim.GetPath()} has inconsistent transforms.")

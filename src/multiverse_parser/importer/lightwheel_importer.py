@@ -4,6 +4,7 @@ import os
 from typing import List, Optional, Dict
 
 import numpy
+from scipy.spatial.transform import Rotation
 
 from multiverse_parser import logging
 from pxr import UsdPhysics, Usd, UsdGeom, Sdf, Gf
@@ -12,7 +13,7 @@ from ..factory import (WorldBuilder,
                        JointAxis, JointType, JointProperty,
                        GeomType, GeomProperty,
                        MeshProperty)
-from ..utils import xform_cache, triangulate_mesh
+from ..utils import xform_cache, get_relative_transform, validate_joint_prim
 
 
 def get_usd_mesh_file_path(gprim_prim: Usd.Prim) -> (str, Sdf.Path):  # type: ignore
@@ -30,17 +31,6 @@ def get_usd_mesh_file_path(gprim_prim: Usd.Prim) -> (str, Sdf.Path):  # type: ig
         return file_abspath, prim_path
     else:
         raise ValueError(f"Multiple prepended items found for {gprim_prim}.")
-
-
-def get_relative(from_prim: Usd.Prim, to_prim: Usd.Prim) -> Gf.Matrix4d:  # type: ignore
-    transformation = (xform_cache.GetLocalToWorldTransform(to_prim) * xform_cache.GetLocalToWorldTransform(
-        from_prim).GetInverse()).RemoveScaleShear()
-    parent_scale = numpy.array(
-        [xform_cache.GetLocalToWorldTransform(from_prim).GetRow(i).GetLength() for i in range(3)])
-    parent_to_body_translate = numpy.array([transformation.GetRow(3)[i] for i in range(3)])
-    parent_to_body_translate *= parent_scale
-    transformation.SetTranslateOnly(Gf.Vec3d(*parent_to_body_translate))
-    return transformation
 
 
 class LightwheelImporter(Factory):
@@ -150,8 +140,8 @@ class LightwheelImporter(Factory):
             body_builder = self.world_builder.add_body(body_name=body_name,
                                                        parent_body_name=parent_body_name)
 
-            parent_to_body_transformation = get_relative(from_prim=parent_prim,
-                                                         to_prim=body_prim)
+            parent_to_body_transformation = get_relative_transform(from_prim=parent_prim,
+                                                                   to_prim=body_prim)
             body_builder.xform.ClearXformOpOrder()
             body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
 
@@ -182,8 +172,8 @@ class LightwheelImporter(Factory):
                 logging.warning(f"Importing body: {new_body_name} with parent {parent_body_name}...")
                 body_builder = self.world_builder.add_body(body_name=new_body_name,
                                                            parent_body_name=parent_body_name)
-                parent_to_body_transformation = get_relative(from_prim=parent_prim,
-                                                             to_prim=gprim_prim)
+                parent_to_body_transformation = get_relative_transform(from_prim=parent_prim,
+                                                                       to_prim=gprim_prim)
                 body_builder.xform.ClearXformOpOrder()
                 body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
                 xform_prim = body_builder.xform.GetPrim()
@@ -226,21 +216,17 @@ class LightwheelImporter(Factory):
                                          density=geom_density)
             geom_builder = body_builder.add_geom(geom_name=geom_name,
                                                  geom_property=geom_property)
-            geom_builder.build(
-                approximation_method=UsdPhysics.MeshCollisionAPI(gprim_prim).GetApproximationAttr().Get())
-            geom_scale = numpy.array(
-                [xform_cache.GetLocalToWorldTransform(gprim_prim).GetRow(i).GetLength() for i in range(3)])
-            geom_scale_mat = numpy.array(
-                [[xform_cache.GetLocalToWorldTransform(gprim_prim).GetRow(i)[j] for i in range(3)] for j in range(3)])
-            det_geom_scale = numpy.linalg.det(geom_scale_mat)
-            if det_geom_scale < 0:
+            geom_builder.build(approximation_method=UsdPhysics.MeshCollisionAPI(gprim_prim).GetApproximationAttr().Get())
+            geom_transform = xform_cache.GetLocalToWorldTransform(gprim_prim)
+            geom_scale = numpy.array([geom_transform.GetRow(i).GetLength() for i in range(3)])
+            if geom_transform.GetDeterminant3() < 0:
                 logging.warning(
                     f"Geom {gprim_prim.GetPath()} has negative scale, flipping the sign from {geom_scale} to {-geom_scale}.")
                 geom_scale = -geom_scale
             if not gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) or not UsdPhysics.RigidBodyAPI(
                     gprim_prim).GetRigidBodyEnabledAttr().Get():
-                geom_transformation = get_relative(from_prim=body_builder.xform.GetPrim(),
-                                                   to_prim=gprim_prim)
+                geom_transformation = get_relative_transform(from_prim=body_builder.xform.GetPrim(),
+                                                             to_prim=gprim_prim)
                 geom_pos = geom_transformation.ExtractTranslation()
                 geom_pos = numpy.array([*geom_pos])
                 geom_quat = geom_transformation.ExtractRotationQuat()
@@ -284,30 +270,31 @@ class LightwheelImporter(Factory):
         if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint):
             return
         logging.info(f"Importing joint: {joint_prim.GetPath()}...")
+
+        validate_joint_prim(joint_prim)
+
         joint = UsdPhysics.Joint(joint_prim)
         child_prim_path = joint.GetBody1Rel().GetTargets()[0]
         child_prim = self.stage.GetPrimAtPath(child_prim_path)
-        parent_prim = self.parent_map[child_prim]
+        joint_transform = xform_cache.GetLocalToWorldTransform(joint_prim)
+        joint_rotation = joint_transform.RemoveScaleShear().ExtractRotation()
+        joint_scale = numpy.array([joint_transform.GetRow(i).GetLength() for i in range(3)])
+        if joint_transform.GetDeterminant3() < 0:
+            logging.warning(f"Joint {joint_prim.GetPath()} has negative scale, flipping the sign from {joint_scale} to {-joint_scale}.")
+            joint_scale = -joint_scale
+        joint_scale = numpy.linalg.norm(numpy.array([joint_rotation.TransformDir(Gf.Vec3d(*v)) for v in numpy.eye(3) * joint_scale]), axis=0)
         if child_prim.IsA(UsdGeom.Gprim):
+            parent_prim = self.parent_map[child_prim]
             child_prim = self.geom_body_map[child_prim]
-            joint_transformation = xform_cache.GetLocalToWorldTransform(joint_prim)
-            joint_scale = numpy.array([joint_transformation.GetRow(i).GetLength() for i in range(3)])
-            joint_scale_mat = numpy.array([[joint_transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
-            det_joint_scale = numpy.linalg.det(joint_scale_mat)
-            if det_joint_scale < 0:
-                logging.warning(
-                    f"Joint {joint_prim.GetPath()} has negative scale, flipping the sign from {joint_scale} to {-joint_scale}.")
-                joint_scale = -joint_scale
-
             if parent_prim.IsA(UsdGeom.Gprim):
                 parent_prim = self.geom_body_map[parent_prim]
-            body1_rot = xform_cache.GetLocalToWorldTransform(parent_prim).ExtractRotationQuat()
-            body1_to_body2_transform = get_relative(from_prim=parent_prim,
-                                                    to_prim=child_prim)
-            body1_to_body2_pos = body1_to_body2_transform.ExtractTranslation()
-            joint_pos = body1_rot.GetInverse().Transform(
+            parent_quat = xform_cache.GetLocalToWorldTransform(parent_prim).RemoveScaleShear().ExtractRotationQuat()
+            parent_to_child_transform = get_relative_transform(from_prim=parent_prim,
+                                                               to_prim=child_prim)
+            parent_to_child_translate = parent_to_child_transform.ExtractTranslation()
+            joint_pos = parent_quat.GetInverse().Transform(
                 Gf.Vec3d(
-                    *[joint.GetLocalPos0Attr().Get()[i] - body1_to_body2_pos[i] / joint_scale[i] for i in range(3)]))
+                    *[joint.GetLocalPos0Attr().Get()[i] - parent_to_child_translate[i] / joint_scale[i] for i in range(3)]))
             joint_pos = numpy.array([*joint_pos]) * joint_scale
         else:
             joint_pos = numpy.array([0.0, 0.0, 0.0])
