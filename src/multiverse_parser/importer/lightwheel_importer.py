@@ -191,7 +191,8 @@ class LightwheelImporter(Factory):
 
         gprim = UsdGeom.Gprim(gprim_prim) # type: ignore
         geom_name = self.name_map[gprim_prim.GetPath()]
-        geom_is_visible = True
+        geom_is_visible = gprim.GetVisibilityAttr().Get() == UsdGeom.Tokens.inherited and \
+                          gprim.GetPurposeAttr().Get() != UsdGeom.Tokens.guide
         if geom_name not in body_builder._geom_builders:
             logging.info(f"Importing geometry: {gprim_prim.GetPath()} as {geom_name}...")
             geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI(gprim_prim).GetCollisionEnabledAttr().Get() # type: ignore

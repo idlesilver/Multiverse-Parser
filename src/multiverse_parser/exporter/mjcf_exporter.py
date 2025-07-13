@@ -15,7 +15,7 @@ from ..factory import Factory
 from ..factory import (JointBuilder, JointType,
                        GeomBuilder, GeomType,
                        PointsBuilder, MaterialProperty)
-from ..utils import xform_cache, modify_name
+from ..utils import xform_cache, modify_name, merge_texture
 
 
 def build_inertial(xform_prim: Usd.Prim, body: ET.Element) -> None:
@@ -191,36 +191,45 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder) -> UsdMujoco.MujocoGeomAPI:
             mesh_name = os.path.splitext(os.path.basename(mesh_file_path))[0]
             mesh_name = add_scale_to_mesh_name(mesh_name=mesh_name, mesh_scale=geom_size)
 
-            mujoco_asset_prim = stage.GetPrimAtPath("/mujoco/asset")
-            mujoco_mesh_path = mujoco_asset_prim.GetPath().AppendChild("meshes").AppendChild(mesh_name)
+            mujoco_meshes_prim = stage.GetPrimAtPath("/mujoco/asset/meshes")
+            mujoco_materials_prim = stage.GetPrimAtPath("/mujoco/asset/materials")
+            mujoco_textures_prim = stage.GetPrimAtPath("/mujoco/asset/textures")
+            mujoco_mesh_path = mujoco_meshes_prim.GetPath().AppendChild(mesh_name)
             if (not stage.GetPrimAtPath(mujoco_mesh_path).IsValid() or
                     not stage.GetPrimAtPath(mujoco_mesh_path).IsA(UsdMujoco.MujocoMesh)):
                 stage.GetRootLayer().Save()
                 raise ValueError(f"Mesh {mujoco_mesh_path} does not exist in {stage.GetRootLayer().realPath}")
             mujoco_geom_api.CreateMeshRel().SetTargets([mujoco_mesh_path])
 
-            if gprim_prim.HasAPI(UsdShade.MaterialBindingAPI):
-                material_binding_api = UsdShade.MaterialBindingAPI(gprim_prim)
-                material_path = material_binding_api.GetDirectBindingRel().GetTargets()[0]
-                material_name = material_path.name
-                mujoco_material_path = mujoco_asset_prim.GetPath().AppendChild("materials").AppendChild(
-                    material_name)
-                if not stage.GetPrimAtPath(mujoco_material_path).IsA(UsdMujoco.MujocoMaterial):
-                    raise ValueError(f"Material {material_name} does not exist.")
-                mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
-            else:
-                child_geom_subset_prims = [child_prim for child_prim in gprim_prim.GetChildren() if child_prim.IsA(UsdGeom.Subset) and child_prim.HasAPI(UsdShade.MaterialBindingAPI)]
-                logging.warning(f"Geom {gprim_prim.GetName()} has no material, but has {len(child_geom_subset_prims)} subsets, will only export the first subset.")
-                for geom_subset_prim in child_geom_subset_prims:
-                    material_binding_api = UsdShade.MaterialBindingAPI(geom_subset_prim)
+            if geom_builder.is_visible:
+                if gprim_prim.HasAPI(UsdShade.MaterialBindingAPI):
+                    material_binding_api = UsdShade.MaterialBindingAPI(gprim_prim)
                     material_path = material_binding_api.GetDirectBindingRel().GetTargets()[0]
                     material_name = material_path.name
-                    mujoco_material_path = mujoco_asset_prim.GetPath().AppendChild("materials").AppendChild(
-                        material_name)
+                    mujoco_material_path = mujoco_materials_prim.GetPath().AppendChild(material_name)
                     if not stage.GetPrimAtPath(mujoco_material_path).IsA(UsdMujoco.MujocoMaterial):
                         raise ValueError(f"Material {material_name} does not exist.")
                     mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
-                    break
+                else:
+                    texture_name = f"T_{gprim_prim.GetName().replace('SM_', '')}"
+                    texture_file_path = os.path.join(os.path.dirname(gprim_prim.GetStage().GetRootLayer().realPath),
+                                                     "tmp",
+                                                     "textures",
+                                                     f"{texture_name}.png")
+                    if os.path.exists(os.path.normpath(texture_file_path)):
+                        child_geom_subset_prims = [child_prim for child_prim in gprim_prim.GetChildren() if child_prim.IsA(UsdGeom.Subset) and child_prim.HasAPI(UsdShade.MaterialBindingAPI)]
+                        logging.warning(f"Geom {gprim_prim.GetName()} has no material, but has {len(child_geom_subset_prims)} subsets, will only export the first subset.")
+                        material_name = f"M_{gprim_prim.GetName()}"
+                        mujoco_material_path = mujoco_materials_prim.GetPath().AppendChild(material_name)
+                        mujoco_material = UsdMujoco.MujocoMaterial.Define(stage, mujoco_material_path)
+
+                        mujoco_texture_path = mujoco_textures_prim.GetPath().AppendChild(texture_name)
+                        mujoco_material.CreateTextureRel().SetTargets([mujoco_texture_path])
+                        mujoco_texture = UsdMujoco.MujocoTexture.Define(stage, mujoco_texture_path)
+                        mujoco_texture.CreateTypeAttr("2d")
+                        mujoco_texture.CreateFileAttr(f"{texture_name}.png")
+
+                        mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
 
     return mujoco_geom_api
 
@@ -243,12 +252,14 @@ class MjcfExporter:
             self,
             factory: Factory,
             file_path: str,
+            merge_textures: bool = True,
     ) -> None:
         self._factory = factory
         self._file_path = file_path
         self._mesh_dir_abs_path = os.path.join(os.path.dirname(self.file_path), self.file_name)
         self._root = ET.Element("mujoco")
         self._body_dict = {}
+        self._merge_textures = merge_textures
 
     def build(self) -> None:
         self._build_config()
@@ -295,9 +306,9 @@ class MjcfExporter:
 
         self._export_equality()
 
-    def _build_config(self):
-        stage = self.factory.world_builder.stage
+        self._build_asset()
 
+    def _build_config(self):
         self._import_mujoco()
 
         self._build_mujoco_asset_mesh_and_material_prims()
@@ -351,7 +362,14 @@ class MjcfExporter:
             "3"
         )
 
-        asset = ET.SubElement(self.root, "asset")
+    def _build_asset(self) -> None:
+        asset = ET.Element("asset")
+        for i, elem in enumerate(self.root):
+            if elem.tag == "default":
+                self.root.insert(i + 1, asset)
+                break
+        else:
+            asset = ET.SubElement(self.root, "asset")
         mujoco_meshes = [UsdMujoco.MujocoMesh(prim) for prim in self.mujoco_meshes_prim.GetChildren()
                          if prim.IsA(UsdMujoco.MujocoMesh)]
         for mujoco_mesh in mujoco_meshes:
@@ -365,13 +383,26 @@ class MjcfExporter:
             scale = mujoco_mesh.GetScaleAttr().Get()
             mesh.set("scale", " ".join(map(str, scale)))
 
-        mujoco_materials = [UsdMujoco.MujocoMaterial(prim) for prim in self.mujoco_materials_prim.GetChildren()
-                            if prim.IsA(UsdMujoco.MujocoMaterial)]
-        for mujoco_material in mujoco_materials:
+        stage = self.factory.world_builder.stage
+        mujoco_materials = {}
+        for gprim_prim in [prim for prim in stage.TraverseAll() if prim.IsA(UsdGeom.Gprim) and prim.HasAPI(UsdMujoco.MujocoGeomAPI)]:
+            mujoco_geom_api = UsdMujoco.MujocoGeomAPI(gprim_prim)
+            for mujoco_material_path in mujoco_geom_api.GetMaterialRel().GetTargets():
+                mujoco_material_prim = stage.GetPrimAtPath(mujoco_material_path)
+                mujoco_material = UsdMujoco.MujocoMaterial(mujoco_material_prim)
+                mujoco_materials[mujoco_material_prim.GetName()] = mujoco_material
+        mujoco_textures = {}
+        for mujoco_material in mujoco_materials.values():
+            for mujoco_texture_path in mujoco_material.GetTextureRel().GetTargets():
+                mujoco_texture_prim = stage.GetPrimAtPath(mujoco_texture_path)
+                mujoco_texture = UsdMujoco.MujocoTexture(mujoco_texture_prim)
+                mujoco_textures[mujoco_texture_prim.GetName()] = mujoco_texture
+
+        for mujoco_material_name, mujoco_material in mujoco_materials.items():
             material = ET.SubElement(asset, "material")
-            material.set("name", mujoco_material.GetPrim().GetName())
+            material.set("name", mujoco_material_name)
             if len(mujoco_material.GetTextureRel().GetTargets()) > 1:
-                raise NotImplementedError(f"Material {mujoco_material.GetPrim().GetName()} has "
+                raise NotImplementedError(f"Material {mujoco_material_name} has "
                                           f"{len(mujoco_material.GetTextureRel().GetTargets())} textures.")
             for texture_path in mujoco_material.GetTextureRel().GetTargets():
                 texture_prim = stage.GetPrimAtPath(texture_path)
@@ -389,11 +420,9 @@ class MjcfExporter:
                 if specular is not None:
                     material.set("specular", str(specular))
 
-        mujoco_textures = [UsdMujoco.MujocoTexture(prim) for prim in self.mujoco_textures_prim.GetChildren()
-                           if prim.IsA(UsdMujoco.MujocoTexture)]
-        for mujoco_texture in mujoco_textures:
+        for mujoco_texture_name, mujoco_texture in mujoco_textures.items():
             texture = ET.SubElement(asset, "texture")
-            texture.set("name", mujoco_texture.GetPrim().GetName())
+            texture.set("name", mujoco_texture_name)
             texture_type = mujoco_texture.GetTypeAttr().Get()
             texture.set("type", texture_type)
             texture.set("file", mujoco_texture.GetFileAttr().Get().path)
@@ -435,6 +464,8 @@ class MjcfExporter:
             mujoco_mesh_api = UsdMujoco.MujocoGeomAPI(prim)
             if len(mujoco_mesh_api.GetMaterialRel().GetTargets()) > 0:
                 continue
+            geom_is_visible = UsdGeom.Gprim(prim).GetVisibilityAttr().Get() == UsdGeom.Tokens.inherited and \
+                              UsdGeom.Gprim(prim).GetPurposeAttr().Get() != UsdGeom.Tokens.guide
             prepended_items = prim.GetPrimStack()[0].referenceList.prependedItems
             if len(prepended_items) > 0:
                 for prepended_item in prepended_items:
@@ -460,58 +491,72 @@ class MjcfExporter:
                     mesh_has_texture_coordinate = texture_coordinate_attr.HasValue() and texture_coordinate_attr.GetTypeName().cppTypeName == "VtArray<GfVec2f>"
                     mesh_file_property = MeshFileProperty(scale=mesh_scale,
                                                           has_texture_coordinate=mesh_has_texture_coordinate)
+                    if geom_is_visible:
+                        local_mesh_prim_path = prim.GetPath()
+                        local_materials_prim = self.factory.world_builder.stage.GetPrimAtPath(local_mesh_prim_path.AppendChild("Materials"))
+                        if local_materials_prim.IsValid() and any([child_prim.IsA(UsdShade.Material) for child_prim in local_materials_prim.GetChildren()]) \
+                            or any([child_prim.IsA(UsdGeom.Subset) for child_prim in prim.GetChildren()]):
+                            mesh_stage = Usd.Stage.Open(mesh_file_path)
+                            mesh_prim = mesh_stage.GetDefaultPrim()
+                            mesh_prim_path = mesh_prim.GetPath()
+                            assert mesh_prim.IsValid(), f"Mesh prim is not valid in {mesh_file_path}."
+                            mesh_materials_prim_path = None
+                            if local_materials_prim.IsValid():
+                                mesh_materials = UsdGeom.Scope.Define(mesh_stage, mesh_prim_path.AppendChild("Materials"))
+                                mesh_materials_prim = mesh_materials.GetPrim()
+                                mesh_materials_prim_path = mesh_materials_prim.GetPath()
+                                for local_material_prim in [child_prim for child_prim in local_materials_prim.GetChildren() if child_prim.IsA(UsdShade.Material)]:
+                                    material_name = local_material_prim.GetName()
+                                    mesh_material = UsdShade.Material.Define(mesh_stage, mesh_materials_prim_path.AppendChild(material_name))
+                                    mesh_material_prim = mesh_material.GetPrim()
+                                    for material_prepended_item in local_material_prim.GetPrimStack()[0].referenceList.prependedItems:
+                                        material_file_path = material_prepended_item.assetPath
+                                        if not os.path.isabs(material_file_path):
+                                            material_file_path = os.path.join(mesh_dir_name, material_file_path)
+                                        material_rel_file_path = os.path.relpath(material_file_path, os.path.dirname(mesh_file_path))
+                                        material_prim_path = material_prepended_item.primPath
+                                        mesh_material_prim.GetReferences().AddReference(f"./{material_rel_file_path}", material_prim_path)
 
-                    local_mesh_prim_path = prim.GetPath()
-                    local_materials_prim = self.factory.world_builder.stage.GetPrimAtPath(local_mesh_prim_path.AppendChild("Materials"))
-                    if local_materials_prim.IsValid() and any([child_prim.IsA(UsdShade.Material) for child_prim in local_materials_prim.GetChildren()]) \
-                        or any([child_prim.IsA(UsdGeom.Subset) for child_prim in prim.GetChildren()]):
-                        mesh_stage = Usd.Stage.Open(mesh_file_path)
-                        mesh_prim = mesh_stage.GetDefaultPrim()
-                        mesh_prim_path = mesh_prim.GetPath()
-                        assert mesh_prim.IsValid(), f"Mesh prim is not valid in {mesh_file_path}."
-                        mesh_materials_prim_path = None
-                        if local_materials_prim.IsValid():
-                            mesh_materials = UsdGeom.Scope.Define(mesh_stage, mesh_prim_path.AppendChild("Materials"))
-                            mesh_materials_prim = mesh_materials.GetPrim()
-                            mesh_materials_prim_path = mesh_materials_prim.GetPath()
-                            for local_material_prim in [child_prim for child_prim in local_materials_prim.GetChildren() if child_prim.IsA(UsdShade.Material)]:
-                                material_name = local_material_prim.GetName()
-                                mesh_material = UsdShade.Material.Define(mesh_stage, mesh_materials_prim_path.AppendChild(material_name))
-                                mesh_material_prim = mesh_material.GetPrim()
-                                for material_prepended_item in local_material_prim.GetPrimStack()[0].referenceList.prependedItems:
-                                    material_file_path = material_prepended_item.assetPath
-                                    if not os.path.isabs(material_file_path):
-                                        material_file_path = os.path.join(mesh_dir_name, material_file_path)
-                                    material_rel_file_path = os.path.relpath(material_file_path, os.path.dirname(mesh_file_path))
-                                    material_prim_path = material_prepended_item.primPath
-                                    mesh_material_prim.GetReferences().AddReference(f"./{material_rel_file_path}", material_prim_path)
+                            for local_geom_subset_prim in [child_prim for child_prim in prim.GetChildren() if child_prim.IsA(UsdGeom.Subset)]:
+                                local_geom_subset = UsdGeom.Subset(local_geom_subset_prim)
+                                geom_subset_name = local_geom_subset_prim.GetName()
+                                geom_subset = UsdGeom.Subset.Define(mesh_stage, mesh_prim.GetPath().AppendChild(geom_subset_name))
+                                geom_subset_prim = geom_subset.GetPrim()
+                                for schema_api in local_geom_subset_prim.GetAppliedSchemas():
+                                    if schema_api == "MaterialBindingAPI":
+                                        assert mesh_materials_prim_path is not None, \
+                                            f"Mesh {mesh_file_path} has geom subset {geom_subset_name} with MaterialBindingAPI, but no Materials prim found."
+                                        local_material_binding_api = UsdShade.MaterialBindingAPI(local_geom_subset_prim)
+                                        material_paths = local_material_binding_api.GetDirectBindingRel().GetTargets()
+                                        assert len(material_paths) == 1, \
+                                            f"Geom subset {geom_subset_name} in {mesh_file_path} has {len(material_paths)} materials, expected 1."
+                                        material_name = material_paths[0].name
+                                        material_binding_api = UsdShade.MaterialBindingAPI.Apply(geom_subset_prim)
+                                        material_binding_api.GetDirectBindingRel().SetTargets([mesh_materials_prim_path.AppendChild(material_name)])
+                                geom_subset.CreateElementTypeAttr(UsdGeom.Tokens.face)
+                                geom_subset.CreateIndicesAttr(local_geom_subset.GetIndicesAttr().Get())
+                                geom_subset.CreateFamilyNameAttr(local_geom_subset.GetFamilyNameAttr().Get())
 
-                        for local_geom_subset_prim in [child_prim for child_prim in prim.GetChildren() if child_prim.IsA(UsdGeom.Subset)]:
-                            local_geom_subset = UsdGeom.Subset(local_geom_subset_prim)
-                            geom_subset_name = local_geom_subset_prim.GetName()
-                            geom_subset = UsdGeom.Subset.Define(mesh_stage, mesh_prim.GetPath().AppendChild(geom_subset_name))
-                            geom_subset_prim = geom_subset.GetPrim()
-                            for schema_api in local_geom_subset_prim.GetAppliedSchemas():
-                                if schema_api == "MaterialBindingAPI":
-                                    assert mesh_materials_prim_path is not None, \
-                                        f"Mesh {mesh_file_path} has geom subset {geom_subset_name} with MaterialBindingAPI, but no Materials prim found."
-                                    local_material_binding_api = UsdShade.MaterialBindingAPI(local_geom_subset_prim)
-                                    material_paths = local_material_binding_api.GetDirectBindingRel().GetTargets()
-                                    assert len(material_paths) == 1, \
-                                        f"Geom subset {geom_subset_name} in {mesh_file_path} has {len(material_paths)} materials, expected 1."
-                                    material_name = material_paths[0].name
-                                    material_binding_api = UsdShade.MaterialBindingAPI.Apply(geom_subset_prim)
-                                    material_binding_api.GetDirectBindingRel().SetTargets([mesh_materials_prim_path.AppendChild(material_name)])
-                            geom_subset.CreateElementTypeAttr(UsdGeom.Tokens.face)
-                            geom_subset.CreateIndicesAttr(local_geom_subset.GetIndicesAttr().Get())
-                            geom_subset.CreateFamilyNameAttr(local_geom_subset.GetFamilyNameAttr().Get())
+                            mesh_stage.GetRootLayer().Save()
 
-                        mesh_stage.GetRootLayer().Save()
+                            if self._merge_textures:
+                                texture_name = f"T_{mesh_prim.GetName().replace('SM_', '')}.png"
+                                texture_path = os.path.join(self.factory.tmp_texture_dir_path, texture_name)
+                                mesh_file_dir = os.path.dirname(mesh_file_path)
+                                mesh_file_name = os.path.splitext(os.path.basename(mesh_file_path))[0]
+                                output_mesh_file_path = os.path.join(mesh_file_dir, f"{mesh_file_name}.obj")
+                                self.factory.export_mesh(in_mesh_file_path=mesh_file_path,
+                                                         execute_cmd_between=merge_texture(output_texture_path=texture_path),
+                                                         out_mesh_file_path=output_mesh_file_path,
+                                                         execute_later=True)
+                                mesh_file_path = output_mesh_file_path
 
                     if mesh_file_path not in mesh_files:
                         mesh_files[mesh_file_path] = {mesh_file_property}
                     elif mesh_scale not in mesh_files[mesh_file_path]:
                         mesh_files[mesh_file_path].add(mesh_file_property)
+
+        self.factory.execute_cmds()
 
         for mesh_file_path, mesh_file_properties in mesh_files.items():
             mesh_file_name = os.path.splitext(os.path.basename(mesh_file_path))[0]

@@ -230,3 +230,146 @@ def validate_joint_prim(joint_prim: Usd.Prim) -> None:
         logging.error(f"Parent to child transform 2: {parent_to_child_translate_2}, {parent_to_child_rotvec_2}")
         logging.error(f"Difference: {parent_to_child_translate_1 - parent_to_child_translate_2}, {different_rot}")
         raise ValueError(f"Joint {joint_prim.GetPath()} has inconsistent transforms.")
+
+
+def merge_texture(output_texture_path: str) -> str:
+    return f"""
+import bpy
+
+def create_bake_uv_and_select(obj, bake_uv):
+    uvs = obj.data.uv_layers
+    if not uvs:
+        return False
+    
+    if bake_uv not in uvs:
+        uvs.new(name=bake_uv)
+    
+    bake_uv_map = uvs[bake_uv]
+    bake_uv_map.active = True
+    uvs.active = bake_uv_map
+    return True
+
+def create_bake_texture_and_image(bake_texture_name, bake_image_name, width, height):
+    if bake_image_name in bpy.data.images:
+        bake_image = bpy.data.images[bake_image_name]
+        bpy.data.images.remove(bake_image)
+
+    bake_image = bpy.data.images.new(name=bake_image_name, width=width, height=height)
+
+    if bake_texture_name in bpy.data.textures:
+        bake_texture = bpy.data.textures[bake_texture_name]
+    else:
+        bake_texture = bpy.data.textures.new(name=bake_texture_name, type='IMAGE')
+
+    bake_texture.image = bake_image
+    return bake_image
+
+def check_materials(obj):
+    empty_slots = False
+    if len(obj.data.materials) == 0:
+        return
+    for slot in obj.material_slots:
+        if slot.material is None:
+            empty_slots = True
+            break
+
+    return not empty_slots
+
+def add_bake_image_texture_node_to_materials_and_select(obj, bake_texture_node_name, bake_image):
+    for material in obj.data.materials:
+        if not material.use_nodes:
+            material.use_nodes = True
+
+        for node in material.node_tree.nodes:
+            node.select = False
+
+        existing_node = None
+        for node in material.node_tree.nodes:
+            if node.type == 'TEX_IMAGE' and node.name == bake_texture_node_name:
+                existing_node = node
+                break
+
+        if existing_node is None:
+            texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
+            texture_node.name = bake_texture_node_name
+            texture_node.location = (-300, 300)
+            existing_node = texture_node
+        
+        existing_node.select = True
+        existing_node.image = bake_image
+        material.node_tree.nodes.active = existing_node
+
+def pack_uv_islands():
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.select_all(action='SELECT')
+    bpy.ops.uv.pack_islands()
+
+def set_bake_settings():
+    bpy.context.scene.render.engine = 'CYCLES'
+    bpy.context.scene.cycles.device = 'GPU'
+    bpy.context.scene.cycles.bake_type = 'DIFFUSE'
+    bpy.context.scene.render.bake.use_pass_direct = False
+    bpy.context.scene.render.bake.use_pass_indirect = False
+
+def bake_and_export(output_texture_path):
+    obj = next((obj for obj in bpy.data.objects if obj.type == 'MESH'), None)
+    if obj is None:
+        return
+
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+
+    if not check_materials(obj):
+        return
+    
+    bake_uv = "bake"
+    bake_image = "BakeImage"
+    bake_texture = "BakeTexture"
+
+    success = create_bake_uv_and_select(obj, bake_uv)
+    if not success:
+        return
+    bake_image = create_bake_texture_and_image(bake_texture, bake_image, 2048, 2048)
+    add_bake_image_texture_node_to_materials_and_select(obj, bake_texture, bake_image)
+    pack_uv_islands()
+    set_bake_settings()
+
+    bpy.ops.object.bake(type='DIFFUSE')
+
+    bake_image.filepath_raw = bpy.path.abspath(output_texture_path)
+    bake_image.file_format = 'PNG'
+    bake_image.save()
+
+    baked_mat = bpy.data.materials.new(name="BakedMaterial")
+    baked_mat.use_nodes = True
+    nodes = baked_mat.node_tree.nodes
+    links = baked_mat.node_tree.links
+
+    nodes.clear()
+    
+    tex_node = nodes.new(type='ShaderNodeTexImage')
+    tex_node.image = bake_image
+    tex_node.interpolation = 'Smart'
+    tex_node.extension = 'CLIP'
+    tex_node.location = (-400, 0)
+
+    bsdf_node = nodes.new(type='ShaderNodeBsdfPrincipled')
+    bsdf_node.location = (-150, 0)
+
+    output_node = nodes.new(type='ShaderNodeOutputMaterial')
+    output_node.location = (200, 0)
+
+    links.new(tex_node.outputs['Color'], bsdf_node.inputs['Base Color'])
+    links.new(bsdf_node.outputs['BSDF'], output_node.inputs['Surface'])
+    obj.data.materials.clear()
+    obj.data.materials.append(baked_mat)
+
+    obj.data.uv_layers.active = obj.data.uv_layers[bake_uv]
+    obj.data.uv_layers[bake_uv].active_render = True
+    
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+bake_and_export('{output_texture_path}')
+"""

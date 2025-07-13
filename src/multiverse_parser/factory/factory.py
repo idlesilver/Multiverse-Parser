@@ -240,6 +240,7 @@ class Factory:
     def export_mesh(self,
                     in_mesh_file_path: str,
                     out_mesh_file_path: str,
+                    execute_cmd_between: str = "",
                     mesh_scale: numpy.ndarray = numpy.array([1.0, 1.0, 1.0]),
                     execute_later: bool = False) -> None:
         in_mesh_file_extension = os.path.splitext(in_mesh_file_path)[1]
@@ -260,6 +261,8 @@ class Factory:
             cmd = import_dae([in_mesh_file_path], mesh_scale)
         else:
             raise ValueError(f"Unsupported file extension {in_mesh_file_extension}.")
+
+        cmd += execute_cmd_between
 
         if out_mesh_file_extension.lower() in [".usd", ".usda", ".usdz"]:
             cmd += export_usd(out_mesh_file_path)
@@ -293,7 +296,7 @@ class Factory:
         # elif len(self.cmds) == 1:
         #     logging.info(f"Executing [blender --background --python-expr\nimport bpy{self.cmds[0]}]...")
 
-        max_processes_count = 100
+        max_processes_count = 10
         processes = []
         processes_count = 0
         for i, sub_cmd in enumerate(self.cmds):
