@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import shutil
 from dataclasses import dataclass
 import os
 from typing import Optional, Union, Any
@@ -39,7 +39,7 @@ def get_input(shader: UsdShade.Shader, shader_input: str) -> Any: # type: ignore
         if file_input is None:
             logging.warning("Only texture file input is supported.")
             return None
-        file_path = file_input.path
+        file_path = file_input.resolvedPath
         if os.path.relpath(file_path):
             file_path = os.path.join(os.path.dirname(shader.GetPrim().GetStage().GetRootLayer().realPath),
                                      file_path)
@@ -109,7 +109,7 @@ class MaterialProperty:
         for shader in [UsdShade.Shader(child_prim) for child_prim in material_prim.GetChildren()]: # type: ignore
             diffuse_texture = get_input(shader=shader, shader_input="diffuse_texture")
             if isinstance(diffuse_texture, Sdf.AssetPath) and diffuse_texture.path != "": # type: ignore
-                return cls(diffuse_color=diffuse_texture.path)
+                return cls(diffuse_color=diffuse_texture.resolvedPath)
             diffuse_color = get_input(shader=shader, shader_input="diffuse_color_constant")
             if isinstance(diffuse_color, Gf.Vec3f): # type: ignore
                 return cls(diffuse_color=numpy.array([*diffuse_color]))
@@ -184,7 +184,7 @@ class MaterialBuilder:
         self._material_property = material_property
         self._material = UsdShade.Material(stage.GetDefaultPrim()) # type: ignore
 
-    def build(self) -> UsdShade.Material: # type: ignore
+    def build(self, optimize_texture=False) -> UsdShade.Material: # type: ignore
         material = self.material
         pbr_shader = UsdShade.Shader.Define(self.stage, # type: ignore
                                             material.GetPath().AppendChild("PBRShader"))
@@ -205,14 +205,19 @@ class MaterialBuilder:
                     self._diffuse_color = numpy.array([0.0, 0.0, 0.0])
                 else:
                     texture_builder = TextureBuilder(file_path=texture_file_path)
-                    rgb = texture_builder.rgb
-                    texture_name = os.path.splitext(os.path.basename(texture_file_path))[0]
-                    new_texture_file_path = os.path.join(os.path.dirname(self.stage.GetRootLayer().realPath),
-                                                        "..",
-                                                        "..",
-                                                        "textures",
-                                                        f"{texture_name}.png")
-                    self.add_texture(file_path=new_texture_file_path, rgb=rgb, wrap_s=self.wrap_s, wrap_t=self.wrap_t)
+                    texture_dir = os.path.join(os.path.dirname(self.stage.GetRootLayer().realPath),
+                                                             "..",
+                                                             "..",
+                                                             "textures")
+                    if optimize_texture:
+                        texture_name = os.path.splitext(os.path.basename(texture_file_path))[0]
+                        new_texture_file_path = os.path.join(texture_dir, f"{texture_name}.png")
+                        rgb = texture_builder.rgb
+                        self.add_texture(file_path=new_texture_file_path, rgb=rgb, wrap_s=self.wrap_s, wrap_t=self.wrap_t)
+                    else:
+                        new_texture_file_path = os.path.join(texture_dir, os.path.basename(texture_file_path))
+                        shutil.copy(texture_file_path, new_texture_file_path)
+                        self.add_texture(file_path=new_texture_file_path, wrap_s=self.wrap_s, wrap_t=self.wrap_t)
             else:
                 raise ValueError(f"Unsupported diffuse color type: {type(diffuse_color)}")
 
@@ -238,14 +243,16 @@ class MaterialBuilder:
 
         return material
 
-    def add_texture(self, file_path: str, rgb: numpy.ndarray, wrap_s: str = "repeat", wrap_t: str = "repeat") -> TextureBuilder:
+    def add_texture(self, file_path: str, rgb: Optional[numpy.ndarray] = None, wrap_s: str = "repeat", wrap_t: str = "repeat") -> TextureBuilder:
         if not os.path.isabs(file_path):
             file_abspath = os.path.join(os.path.dirname(self.stage.GetRootLayer().realPath), file_path)
         else:
             file_abspath = file_path
         file_relpath = os.path.relpath(file_abspath, os.path.dirname(self.stage.GetRootLayer().realPath))
+
         texture_builder = TextureBuilder(file_path=file_abspath)
-        texture_builder.rgb = rgb
+        if not os.path.exists(file_abspath):
+            texture_builder.rgb = rgb
 
         st_input = self.material.CreateInput('frame:stPrimvarName', Sdf.ValueTypeNames.Token) # type: ignore
         st_input.Set('st')

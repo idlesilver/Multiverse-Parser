@@ -10,7 +10,7 @@ from pxr import UsdPhysics, Usd, UsdGeom, Sdf, Gf, UsdShade
 from ..factory import Factory, Configuration, InertiaSource
 from ..factory import (WorldBuilder,
                        JointAxis, JointType, JointProperty,
-                       GeomType, GeomProperty,
+                       GeomBuilder, GeomType, GeomProperty,
                        MeshProperty,
                        MaterialProperty)
 from ..utils import xform_cache, get_relative_transform, validate_joint_prim
@@ -109,12 +109,12 @@ class LightwheelImporter(Factory):
             if prim.IsA(UsdGeom.Gprim): # type: ignore
                 self._import_geom(gprim_prim=prim)
 
-        for joint_prim in [joint_prim for joint_prim in self.stage.Traverse() if
-                           joint_prim.IsA(UsdPhysics.Joint)]:  # type: ignore
-            if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in
-                   self.black_list_names) if self.black_list_names is not None else False:
-                continue
-            self._import_joint_and_inertial(joint_prim=joint_prim)
+        # for joint_prim in [joint_prim for joint_prim in self.stage.Traverse() if
+        #                    joint_prim.IsA(UsdPhysics.Joint)]:  # type: ignore
+        #     if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in
+        #            self.black_list_names) if self.black_list_names is not None else False:
+        #         continue
+        #     self._import_joint_and_inertial(joint_prim=joint_prim)
 
         self.world_builder.export()
 
@@ -189,7 +189,7 @@ class LightwheelImporter(Factory):
         body_name = self.name_map[xform_prim.GetPath()]
         body_builder = self.world_builder.get_body_builder(body_name=body_name)
 
-        gprim = UsdGeom.Gprim(gprim_prim)
+        gprim = UsdGeom.Gprim(gprim_prim) # type: ignore
         geom_name = self.name_map[gprim_prim.GetPath()]
         geom_is_visible = True
         if geom_name not in body_builder._geom_builders:
@@ -259,7 +259,7 @@ class LightwheelImporter(Factory):
         face_vertex_indices = mesh.GetFaceVertexIndicesAttr().Get()
         assert face_vertex_indices is not None, "Mesh face vertex indices cannot be None"
 
-        for primvar in UsdGeom.PrimvarsAPI(gprim_prim).GetPrimvars():
+        for primvar in UsdGeom.PrimvarsAPI(gprim_prim).GetPrimvars(): # type: ignore
             if primvar.GetBaseName() == "st" and primvar.GetTypeName().cppTypeName == "VtArray<GfVec2f>":
                 texture_coordinates = numpy.array(primvar.Get(), dtype=numpy.float32)
                 texture_coordinate_indices = primvar.GetIndicesAttr().Get()
@@ -282,30 +282,40 @@ class LightwheelImporter(Factory):
                               mesh_property=mesh_property)
 
         if geom_is_visible:
-            logging.info(f"Importing material for {mesh_name}...")
             self._import_material(geom_builder=geom_builder, gprim_prim=gprim_prim)
 
-    def _import_material(self, geom_builder, gprim_prim):
-        if gprim_prim.HasAPI(UsdShade.MaterialBindingAPI):
+    def _import_material(self, geom_builder: GeomBuilder, gprim_prim: Usd.Prim) -> None:  # type: ignore
+        material_id = 0
+        if gprim_prim.HasAPI(UsdShade.MaterialBindingAPI): # type: ignore
             material_prim = self._get_material_prim(gprim_prim=gprim_prim)
             if material_prim is not None:
                 material_path, material_property = self._get_material_property(material_prim=material_prim)
-                geom_builder.add_material(material_name=material_path.name,
+                material_name = f"M_{gprim_prim.GetName()}_{material_id}"
+                material_id += 1
+                logging.info(f"Importing material: {material_path} as {material_name}...")
+                geom_builder.add_material(material_name=material_name,
                                           material_property=material_property)
 
+        material_paths = []
         for subset_prim in [subset_prim for subset_prim in gprim_prim.GetChildren() if
-                            subset_prim.IsA(UsdGeom.Subset) and subset_prim.HasAPI(UsdShade.MaterialBindingAPI)]:
+                            subset_prim.IsA(UsdGeom.Subset) and subset_prim.HasAPI(UsdShade.MaterialBindingAPI)]: # type: ignore
             material_prim = self._get_material_prim(gprim_prim=subset_prim)
             if material_prim is None:
                 continue
             material_path, material_property = self._get_material_property(material_prim)
-            geom_builder.add_material(material_name=material_path.name,
+            material_name = f"M_{gprim_prim.GetName()}_{material_id}"
+            if material_path not in material_paths:
+                material_id += 1
+                logging.info(f"Importing material: {material_path} as {material_name}...")
+                material_paths.append(material_path)
+
+            geom_builder.add_material(material_name=material_name,
                                       material_property=material_property,
-                                      subset=UsdGeom.Subset(subset_prim))
+                                      subset=UsdGeom.Subset(subset_prim)) # type: ignore
 
 
-    def _get_material_prim(self, gprim_prim: Usd.Prim) -> Usd.Prim:
-        material_binding_api = UsdShade.MaterialBindingAPI(gprim_prim)
+    def _get_material_prim(self, gprim_prim: Usd.Prim) -> Usd.Prim: # type: ignore
+        material_binding_api = UsdShade.MaterialBindingAPI(gprim_prim) # type: ignore
         material_paths = material_binding_api.GetDirectBindingRel().GetTargets()
         if len(material_paths) > 1:
             raise NotImplementedError(f"{gprim_prim.GetTypeName()} {gprim_prim.GetName()} has more than one material.")
@@ -318,7 +328,7 @@ class LightwheelImporter(Factory):
         return material_prim
 
 
-    def _get_material_property(self, material_prim: Usd.Prim) -> (Sdf.Path, MaterialProperty):
+    def _get_material_property(self, material_prim: Usd.Prim) -> (Sdf.Path, MaterialProperty): # type: ignore
         if len(material_prim.GetPrimStack()) >= 2:
             material_prim_stack = material_prim.GetPrimStack()[1]
             material_file_path = material_prim_stack.layer.realPath
@@ -326,9 +336,12 @@ class LightwheelImporter(Factory):
         else:
             material_file_path = material_prim.GetStage().GetRootLayer().realPath
             material_path = material_prim.GetPath()
-        material_property = MaterialProperty.from_material_file_path(
-            material_file_path=material_file_path,
-            material_path=material_path)
+        if material_file_path != self.stage.GetRootLayer().realPath:
+            material_property = MaterialProperty.from_material_file_path(
+                material_file_path=material_file_path,
+                material_path=material_path)
+        else:
+            material_property = MaterialProperty.from_prim(material_prim=material_prim)
         if material_property.opacity == 0.0:
             logging.warning(f"Opacity of {material_path} is 0.0. Set to 1.0.")
             material_property._opacity = 1.0

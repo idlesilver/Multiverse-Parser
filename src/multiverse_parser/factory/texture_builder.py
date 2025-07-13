@@ -4,7 +4,9 @@ import os
 
 import numpy
 from PIL import Image
+from ..utils import logging
 
+logging.getLogger("PIL").setLevel(logging.CRITICAL)
 
 class TextureBuilder:
     file_path: str
