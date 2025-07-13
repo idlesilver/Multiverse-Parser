@@ -6,12 +6,13 @@ from typing import List, Optional, Dict
 import numpy
 
 from multiverse_parser import logging
-from pxr import UsdPhysics, Usd, UsdGeom, Sdf, Gf
+from pxr import UsdPhysics, Usd, UsdGeom, Sdf, Gf, UsdShade
 from ..factory import Factory, Configuration, InertiaSource
 from ..factory import (WorldBuilder,
                        JointAxis, JointType, JointProperty,
                        GeomType, GeomProperty,
-                       MeshProperty)
+                       MeshProperty,
+                       MaterialProperty)
 from ..utils import xform_cache, get_relative_transform, validate_joint_prim
 
 
@@ -188,10 +189,11 @@ class LightwheelImporter(Factory):
         body_name = self.name_map[xform_prim.GetPath()]
         body_builder = self.world_builder.get_body_builder(body_name=body_name)
 
+        gprim = UsdGeom.Gprim(gprim_prim)
         geom_name = self.name_map[gprim_prim.GetPath()]
+        geom_is_visible = True
         if geom_name not in body_builder._geom_builders:
             logging.info(f"Importing geometry: {gprim_prim.GetPath()} as {geom_name}...")
-            geom_is_visible = True
             geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI(gprim_prim).GetCollisionEnabledAttr().Get() # type: ignore
             if gprim_prim.IsA(UsdGeom.Cube): # type: ignore
                 geom_type = GeomType.CUBE
@@ -205,6 +207,12 @@ class LightwheelImporter(Factory):
                 raise NotImplementedError(f"Geometry type {gprim_prim.GetTypeName()} is not supported yet.")
 
             geom_rgba = self.config.default_rgba
+            gprim_rgb = gprim.GetDisplayColorAttr().Get()
+            gprim_opacity = gprim.GetDisplayOpacityAttr().Get()
+            if gprim_rgb is not None and len(gprim_rgb[0]) > 0:
+                geom_rgba[:3] = gprim_rgb[0][:3]
+            if gprim_opacity is not None:
+                geom_rgba[3] = gprim_opacity[0]
             geom_density = 1000.0
             geom_property = GeomProperty(geom_type=geom_type,
                                          is_visible=geom_is_visible,
@@ -230,7 +238,7 @@ class LightwheelImporter(Factory):
                 geom_builder.set_transform(pos=geom_pos, quat=geom_quat, scale=geom_scale)
             else:
                 geom_builder.set_transform(scale=geom_scale)
-            geom_builder.gprim.CreatePurposeAttr(UsdGeom.Gprim(gprim_prim).GetPurposeAttr().Get()) # type: ignore
+            geom_builder.gprim.CreatePurposeAttr(gprim.GetPurposeAttr().Get()) # type: ignore
             self.geom_body_map[gprim_prim] = body_builder.xform.GetPrim()
         else:
             geom_builder = body_builder.get_geom_builder(geom_name=geom_name)
@@ -250,10 +258,21 @@ class LightwheelImporter(Factory):
         assert face_vertex_counts is not None, "Mesh face vertex counts cannot be None"
         face_vertex_indices = mesh.GetFaceVertexIndicesAttr().Get()
         assert face_vertex_indices is not None, "Mesh face vertex indices cannot be None"
+
+        for primvar in UsdGeom.PrimvarsAPI(gprim_prim).GetPrimvars():
+            if primvar.GetBaseName() == "st" and primvar.GetTypeName().cppTypeName == "VtArray<GfVec2f>":
+                texture_coordinates = numpy.array(primvar.Get(), dtype=numpy.float32)
+                texture_coordinate_indices = primvar.GetIndicesAttr().Get()
+                break
+        else:
+            texture_coordinates = None
+            texture_coordinate_indices = None
         mesh_property = MeshProperty(points=numpy.array(points),
                                      normals=numpy.array(normals),
                                      face_vertex_counts=numpy.array(face_vertex_counts),
-                                     face_vertex_indices=numpy.array(face_vertex_indices))
+                                     face_vertex_indices=numpy.array(face_vertex_indices),
+                                     texture_coordinates=texture_coordinates,
+                                     texture_coordinate_indices=texture_coordinate_indices)
         mesh_property.mesh_file_name = mesh_name
         if mesh_property.points.size == 0 or mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
             # TODO: Fix empty mesh
@@ -261,6 +280,59 @@ class LightwheelImporter(Factory):
             return
         geom_builder.add_mesh(mesh_name=mesh_name,
                               mesh_property=mesh_property)
+
+        if geom_is_visible:
+            logging.info(f"Importing material for {mesh_name}...")
+            self._import_material(geom_builder=geom_builder, gprim_prim=gprim_prim)
+
+    def _import_material(self, geom_builder, gprim_prim):
+        if gprim_prim.HasAPI(UsdShade.MaterialBindingAPI):
+            material_prim = self._get_material_prim(gprim_prim=gprim_prim)
+            if material_prim is not None:
+                material_path, material_property = self._get_material_property(material_prim=material_prim)
+                geom_builder.add_material(material_name=material_path.name,
+                                          material_property=material_property)
+
+        for subset_prim in [subset_prim for subset_prim in gprim_prim.GetChildren() if
+                            subset_prim.IsA(UsdGeom.Subset) and subset_prim.HasAPI(UsdShade.MaterialBindingAPI)]:
+            material_prim = self._get_material_prim(gprim_prim=subset_prim)
+            if material_prim is None:
+                continue
+            material_path, material_property = self._get_material_property(material_prim)
+            geom_builder.add_material(material_name=material_path.name,
+                                      material_property=material_property,
+                                      subset=UsdGeom.Subset(subset_prim))
+
+
+    def _get_material_prim(self, gprim_prim: Usd.Prim) -> Usd.Prim:
+        material_binding_api = UsdShade.MaterialBindingAPI(gprim_prim)
+        material_paths = material_binding_api.GetDirectBindingRel().GetTargets()
+        if len(material_paths) > 1:
+            raise NotImplementedError(f"{gprim_prim.GetTypeName()} {gprim_prim.GetName()} has more than one material.")
+        if len(material_paths) == 0:
+            return None
+        else:
+            material_prim = self.stage.GetPrimAtPath(material_paths[0])
+            if not material_prim.IsValid():
+                return None
+        return material_prim
+
+
+    def _get_material_property(self, material_prim: Usd.Prim) -> (Sdf.Path, MaterialProperty):
+        if len(material_prim.GetPrimStack()) >= 2:
+            material_prim_stack = material_prim.GetPrimStack()[1]
+            material_file_path = material_prim_stack.layer.realPath
+            material_path = material_prim_stack.path
+        else:
+            material_file_path = material_prim.GetStage().GetRootLayer().realPath
+            material_path = material_prim.GetPath()
+        material_property = MaterialProperty.from_material_file_path(
+            material_file_path=material_file_path,
+            material_path=material_path)
+        if material_property.opacity == 0.0:
+            logging.warning(f"Opacity of {material_path} is 0.0. Set to 1.0.")
+            material_property._opacity = 1.0
+        return material_path, material_property
 
     def _import_joint_and_inertial(self, joint_prim: Usd.Prim) -> None:  # type: ignore
         if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint): # type: ignore

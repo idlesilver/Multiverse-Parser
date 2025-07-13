@@ -10,8 +10,7 @@ import numpy
 from multiverse_parser import logging
 from .mesh_builder import MeshBuilder, MeshProperty
 from .material_builder import MaterialBuilder, MaterialProperty
-from ..utils import modify_name, calculate_mesh_inertial, shift_inertia_tensor, shift_center_of_mass, get_transform, \
-    triangulate_mesh
+from ..utils import modify_name, calculate_mesh_inertial, shift_inertia_tensor, shift_center_of_mass, get_transform
 
 from pxr import Usd, UsdGeom, Sdf, UsdShade, UsdPhysics
 

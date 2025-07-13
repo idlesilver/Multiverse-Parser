@@ -12,26 +12,27 @@ from .texture_builder import TextureBuilder
 from pxr import Usd, Sdf, UsdShade, Gf
 
 
-def get_input(shader: UsdShade.Shader, shader_input: str) -> Any:
+def get_input(shader: UsdShade.Shader, shader_input: str) -> Any: # type: ignore
     shader_inputs = [shader_input.GetBaseName() for shader_input in shader.GetInputs()]
     if shader_input not in shader_inputs:
         return None
     shader_input = shader.GetInput(shader_input)
     if shader_input.HasConnectedSource():
-        source = shader_input.GetConnectedSource()[0]
-        if len(source.GetOutputs()) != 1:
-            for output in source.GetOutputs():
-                if output.GetBaseName() == "rgb":
-                    output_prim = output.GetPrim()
-                    break
+        while shader_input.HasConnectedSource():
+            source = shader_input.GetConnectedSource()[0]
+            if len(source.GetOutputs()) != 1:
+                for output in source.GetOutputs():
+                    if output.GetBaseName() == "rgb":
+                        break
+                else:
+                    raise NotImplementedError("Multiple outputs are not supported yet.")
             else:
-                raise NotImplementedError("Multiple outputs are not supported yet.")
-        else:
-            output = source.GetOutputs()[0]
-            output_prim = output.GetPrim()
-        if not output_prim.IsA(UsdShade.Shader):
+                output = source.GetOutputs()[0]
+            shader_input = output
+        output_prim = shader_input.GetPrim()
+        if not output_prim.IsA(UsdShade.Shader): # type: ignore
             raise NotImplementedError("Only shader output is supported.")
-        output_shader = UsdShade.Shader(output_prim)
+        output_shader = UsdShade.Shader(output_prim) # type: ignore
         if output_shader.GetIdAttr().Get() != "UsdUVTexture":
             raise NotImplementedError("Only texture shader is supported.")
         file_input = output_shader.GetInput("file").Get()
@@ -73,30 +74,58 @@ class MaterialProperty:
         self._wrap_t = wrap_t
 
     @classmethod
-    def from_material_file_path(cls, material_file_path: str, material_path: Sdf.Path) -> "MaterialProperty":
-        material_stage = Usd.Stage.Open(material_file_path)
+    def from_material_file_path(cls, material_file_path: str, material_path: Sdf.Path) -> "MaterialProperty": # type: ignore
+        material_stage = Usd.Stage.Open(material_file_path) # type: ignore
         material_prim = material_stage.GetPrimAtPath(material_path)
-        if not material_prim.IsA(UsdShade.Material):
+        if not material_prim.IsA(UsdShade.Material): # type: ignore
             raise TypeError(f"{material_path} is not a material")
         return cls.from_prim(material_prim=material_prim)
 
     @classmethod
-    def from_prim(cls, material_prim: Usd.Prim) -> "MaterialProperty":
-        for shader in [UsdShade.Shader(child_prim) for child_prim in material_prim.GetChildren()]:
+    def from_prim(cls, material_prim: Usd.Prim) -> "MaterialProperty": # type: ignore
+        surface_output = UsdShade.Material(material_prim).GetOutput("surface") # type: ignore
+        while surface_output.HasConnectedSource():
+            source = surface_output.GetConnectedSource()[0]
+            if len(source.GetOutputs()) != 1:
+                for output in source.GetOutputs():
+                    if output.GetBaseName() in ["rgb", "surface"]:
+                        output_prim = output.GetPrim()
+                        surface_output = UsdShade.Material(output_prim).GetOutput("surface") # type: ignore
+                        break
+                else:
+                    raise NotImplementedError("Multiple outputs are not supported yet.")
+            else:
+                output = source.GetOutputs()[0]
+                output_prim = output.GetPrim()
+                surface_output = UsdShade.Material(output_prim).GetOutput("surface") # type: ignore
+        if surface_output.GetPrim().IsA(UsdShade.Shader): # type: ignore
+            material_prim = surface_output.GetPrim()
+            return cls.from_pbr_shader(pbr_shader=UsdShade.Shader(material_prim)) # type: ignore
+
+        for shader in [UsdShade.Shader(child_prim) for child_prim in material_prim.GetChildren()]: # type: ignore
             if shader.GetIdAttr().Get() == "UsdPreviewSurface":
                 return cls.from_pbr_shader(pbr_shader=shader)
 
-        raise NotImplementedError(
-            f"Material {material_prim.GetName()} does not have a shader with UsdPreviewSurface id.")
+        for shader in [UsdShade.Shader(child_prim) for child_prim in material_prim.GetChildren()]: # type: ignore
+            diffuse_texture = get_input(shader=shader, shader_input="diffuse_texture")
+            if isinstance(diffuse_texture, Sdf.AssetPath) and diffuse_texture.path != "": # type: ignore
+                return cls(diffuse_color=diffuse_texture.path)
+            diffuse_color = get_input(shader=shader, shader_input="diffuse_color_constant")
+            if isinstance(diffuse_color, Gf.Vec3f): # type: ignore
+                return cls(diffuse_color=numpy.array([*diffuse_color]))
+
+        return cls()
+        # raise NotImplementedError(
+        #     f"Material {material_prim.GetPath()} does not have a shader with UsdPreviewSurface id.")
 
     @classmethod
-    def from_pbr_shader(cls, pbr_shader: UsdShade.Shader) -> "MaterialProperty":
+    def from_pbr_shader(cls, pbr_shader: UsdShade.Shader) -> "MaterialProperty": # type: ignore
         wrap_s = "repeat"
         wrap_t = "repeat"
         # TODO: Implement wrap_s and wrap_t
 
         diffuse_color = get_input(shader=pbr_shader, shader_input="diffuseColor")
-        if isinstance(diffuse_color, Gf.Vec3f):
+        if isinstance(diffuse_color, Gf.Vec3f): # type: ignore
             diffuse_color = numpy.array(diffuse_color)
 
         opacity = get_input(shader=pbr_shader, shader_input="opacity")
@@ -108,11 +137,11 @@ class MaterialProperty:
                 opacity = float(opacity)
 
         emissive_color = get_input(shader=pbr_shader, shader_input="emissiveColor")
-        if isinstance(emissive_color, Gf.Vec3f):
+        if isinstance(emissive_color, Gf.Vec3f): # type: ignore
             emissive_color = numpy.array(emissive_color)
 
         specular_color = get_input(shader=pbr_shader, shader_input="specularColor")
-        if isinstance(specular_color, Gf.Vec3f):
+        if isinstance(specular_color, Gf.Vec3f): # type: ignore
             specular_color = numpy.array(specular_color)
 
         return cls(diffuse_color=diffuse_color,
@@ -148,24 +177,24 @@ class MaterialProperty:
 
 
 class MaterialBuilder:
-    stage: Usd.Stage
-    material: UsdShade.Material
+    stage: Usd.Stage # type: ignore
+    material: UsdShade.Material # type: ignore
 
     def __init__(self, stage, material_property: MaterialProperty) -> None:
         self._material_property = material_property
-        self._material = UsdShade.Material(stage.GetDefaultPrim())
+        self._material = UsdShade.Material(stage.GetDefaultPrim()) # type: ignore
 
-    def build(self) -> UsdShade.Material:
+    def build(self) -> UsdShade.Material: # type: ignore
         material = self.material
-        pbr_shader = UsdShade.Shader.Define(self.stage,
+        pbr_shader = UsdShade.Shader.Define(self.stage, # type: ignore
                                             material.GetPath().AppendChild("PBRShader"))
         pbr_shader.CreateIdAttr("UsdPreviewSurface")
-        pbr_shader.CreateInput("useSpecularWorkflow", Sdf.ValueTypeNames.Int).Set(1)
+        pbr_shader.CreateInput("useSpecularWorkflow", Sdf.ValueTypeNames.Int).Set(1) # type: ignore
         diffuse_color = self.diffuse_color
         if diffuse_color is not None:
             if isinstance(diffuse_color, numpy.ndarray):
-                diffuse_color_input = Gf.Vec3f(*diffuse_color.tolist())
-                pbr_shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(diffuse_color_input)
+                diffuse_color_input = Gf.Vec3f(*diffuse_color.tolist()) # type: ignore
+                pbr_shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(diffuse_color_input) # type: ignore
             elif isinstance(diffuse_color, str):
                 texture_file_path = diffuse_color
                 if not os.path.isabs(texture_file_path):
@@ -189,19 +218,19 @@ class MaterialBuilder:
 
         opacity = self.opacity
         if isinstance(opacity, float):
-            pbr_shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(opacity)
+            pbr_shader.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(opacity) # type: ignore
 
         emissive_color = self.emissive_color
         if isinstance(emissive_color, numpy.ndarray) and emissive_color.ndim > 0:
             if any([isinstance(x, str) for x in emissive_color]):
                 raise NotImplementedError("Emissive color texture not supported yet.")
-            emissive_color_input = Gf.Vec3f(*emissive_color.tolist())
-            pbr_shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(emissive_color_input)
+            emissive_color_input = Gf.Vec3f(*emissive_color.tolist()) # type: ignore
+            pbr_shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(emissive_color_input) # type: ignore
 
         specular_color = self.specular_color
         if isinstance(specular_color, numpy.ndarray) and specular_color.ndim > 0:
-            specular_color_input = Gf.Vec3f(*specular_color.tolist())
-            pbr_shader.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set(specular_color_input)
+            specular_color_input = Gf.Vec3f(*specular_color.tolist()) # type: ignore
+            pbr_shader.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set(specular_color_input) # type: ignore
 
         material.CreateSurfaceOutput().ConnectToSource(pbr_shader.ConnectableAPI(), "surface")
 
@@ -218,35 +247,35 @@ class MaterialBuilder:
         texture_builder = TextureBuilder(file_path=file_abspath)
         texture_builder.rgb = rgb
 
-        st_input = self.material.CreateInput('frame:stPrimvarName', Sdf.ValueTypeNames.Token)
+        st_input = self.material.CreateInput('frame:stPrimvarName', Sdf.ValueTypeNames.Token) # type: ignore
         st_input.Set('st')
 
         material_path = self.material.GetPath()
         prim_var_reader_path = material_path.AppendChild("PrimvarReader")
-        prim_var_reader = UsdShade.Shader.Define(self.stage, prim_var_reader_path)
+        prim_var_reader = UsdShade.Shader.Define(self.stage, prim_var_reader_path) # type: ignore
         prim_var_reader.CreateIdAttr("UsdPrimvarReader_float2")
 
         diffuse_texture_path = material_path.AppendChild("DiffuseTexture")
-        diffuse_texture = UsdShade.Shader.Define(self.stage, diffuse_texture_path)
+        diffuse_texture = UsdShade.Shader.Define(self.stage, diffuse_texture_path) # type: ignore
         diffuse_texture.CreateIdAttr('UsdUVTexture')
-        diffuse_texture_file_input = diffuse_texture.CreateInput('file', Sdf.ValueTypeNames.Asset)
+        diffuse_texture_file_input = diffuse_texture.CreateInput('file', Sdf.ValueTypeNames.Asset) # type: ignore
         diffuse_texture_file_input.Set(file_relpath)
-        diffuse_texture_st_input = diffuse_texture.CreateInput("st", Sdf.ValueTypeNames.Float2)
+        diffuse_texture_st_input = diffuse_texture.CreateInput("st", Sdf.ValueTypeNames.Float2) # type: ignore
         diffuse_texture_st_input.ConnectToSource(prim_var_reader.ConnectableAPI(), 'result')
-        diffuse_texture_wrap_s_input = diffuse_texture.CreateInput("wrapS", Sdf.ValueTypeNames.Token)
+        diffuse_texture_wrap_s_input = diffuse_texture.CreateInput("wrapS", Sdf.ValueTypeNames.Token) # type: ignore
         diffuse_texture_wrap_s_input.Set(wrap_s)
-        diffuse_texture_wrap_t_input = diffuse_texture.CreateInput("wrapT", Sdf.ValueTypeNames.Token)
+        diffuse_texture_wrap_t_input = diffuse_texture.CreateInput("wrapT", Sdf.ValueTypeNames.Token) # type: ignore
         diffuse_texture_wrap_t_input.Set(wrap_t)
-        diffuse_texture.CreateOutput('rgb', Sdf.ValueTypeNames.Float3)
+        diffuse_texture.CreateOutput('rgb', Sdf.ValueTypeNames.Float3) # type: ignore
 
-        pbr_shader = UsdShade.Shader(self.stage.GetPrimAtPath(material_path.AppendChild("PBRShader")))
+        pbr_shader = UsdShade.Shader(self.stage.GetPrimAtPath(material_path.AppendChild("PBRShader"))) # type: ignore
         if pbr_shader is None:
             raise ValueError(f"Material {material_path} does not have a PBRShader.")
 
-        diffuse_color_input = pbr_shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f)
+        diffuse_color_input = pbr_shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f) # type: ignore
         diffuse_color_input.ConnectToSource(diffuse_texture.ConnectableAPI(), 'rgb')
 
-        var_name_input = prim_var_reader.CreateInput('varname', Sdf.ValueTypeNames.Token)
+        var_name_input = prim_var_reader.CreateInput('varname', Sdf.ValueTypeNames.Token) # type: ignore
         var_name_input.ConnectToSource(st_input)
 
         self.stage.GetRootLayer().Save()

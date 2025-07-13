@@ -20,6 +20,8 @@ class TextureBuilder:
     def rgb(self):
         if not os.path.exists(self._file_path):
             raise ValueError(f"File {self._file_path} does not exist.")
+        if os.path.isdir(self._file_path):
+            raise ValueError(f"File path {self._file_path} is a directory, not a file.")
 
         image = Image.open(self._file_path)
         img_rgb = image.convert('RGB')
