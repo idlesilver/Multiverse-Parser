@@ -109,12 +109,12 @@ class LightwheelImporter(Factory):
             if prim.IsA(UsdGeom.Gprim): # type: ignore
                 self._import_geom(gprim_prim=prim)
 
-        # for joint_prim in [joint_prim for joint_prim in self.stage.Traverse() if
-        #                    joint_prim.IsA(UsdPhysics.Joint)]:  # type: ignore
-        #     if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in
-        #            self.black_list_names) if self.black_list_names is not None else False:
-        #         continue
-        #     self._import_joint_and_inertial(joint_prim=joint_prim)
+        for joint_prim in [joint_prim for joint_prim in self.stage.Traverse() if
+                           joint_prim.IsA(UsdPhysics.Joint)]:  # type: ignore
+            if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in
+                   self.black_list_names) if self.black_list_names is not None else False:
+                continue
+            self._import_joint_and_inertial(joint_prim=joint_prim)
 
         self.world_builder.export()
 

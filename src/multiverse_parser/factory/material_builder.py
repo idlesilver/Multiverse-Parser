@@ -11,6 +11,8 @@ from .texture_builder import TextureBuilder
 
 from pxr import Usd, Sdf, UsdShade, Gf
 
+from ..utils import modify_name
+
 
 def get_input(shader: UsdShade.Shader, shader_input: str) -> Any: # type: ignore
     shader_inputs = [shader_input.GetBaseName() for shader_input in shader.GetInputs()]
@@ -184,7 +186,7 @@ class MaterialBuilder:
         self._material_property = material_property
         self._material = UsdShade.Material(stage.GetDefaultPrim()) # type: ignore
 
-    def build(self, optimize_texture=False) -> UsdShade.Material: # type: ignore
+    def build(self, optimize_texture=True) -> UsdShade.Material: # type: ignore
         material = self.material
         pbr_shader = UsdShade.Shader.Define(self.stage, # type: ignore
                                             material.GetPath().AppendChild("PBRShader"))
@@ -211,11 +213,15 @@ class MaterialBuilder:
                                                              "textures")
                     if optimize_texture:
                         texture_name = os.path.splitext(os.path.basename(texture_file_path))[0]
+                        texture_name = modify_name(in_name=texture_name, replacement="T_")
                         new_texture_file_path = os.path.join(texture_dir, f"{texture_name}.png")
                         rgb = texture_builder.rgb
                         self.add_texture(file_path=new_texture_file_path, rgb=rgb, wrap_s=self.wrap_s, wrap_t=self.wrap_t)
                     else:
-                        new_texture_file_path = os.path.join(texture_dir, os.path.basename(texture_file_path))
+                        texture_name = os.path.splitext(os.path.basename(texture_file_path))[0]
+                        texture_ext = os.path.splitext(os.path.basename(texture_file_path))[1]
+                        texture_name = modify_name(in_name=texture_name, replacement="T_")
+                        new_texture_file_path = os.path.join(texture_dir, f"{texture_name}{texture_ext}")
                         shutil.copy(texture_file_path, new_texture_file_path)
                         self.add_texture(file_path=new_texture_file_path, wrap_s=self.wrap_s, wrap_t=self.wrap_t)
             else:
