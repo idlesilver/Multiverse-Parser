@@ -157,7 +157,7 @@ class BodyBuilder:
             new_diagonal_inertia = numpy.array([1E-3, 1E-3, 1E-3]) * mass
             logging.warning(f"Diagonal inertia {diagonal_inertia} of body {self.xform.GetPrim().GetName()} is invalid. Setting to {[*new_diagonal_inertia]}.")
             diagonal_inertia = new_diagonal_inertia
-        if not numpy.isclose(numpy.linalg.norm(numpy.array([*diagonal_inertia])), 1.0, atol=1e-3):
+        if not numpy.isclose(numpy.linalg.norm(numpy.array([*principal_axes])), 1.0, atol=1e-3):
             logging.warning(f"Principal axes {principal_axes} of body {self.xform.GetPrim().GetName()} is not normalized. Normalizing it.")
             if numpy.linalg.norm(principal_axes) == 0.0:
                 principal_axes = numpy.array([0.0, 0.0, 0.0, 1.0])
