@@ -9,6 +9,7 @@ from multiverse_parser import logging
 from pxr import UsdPhysics, Usd, UsdGeom, Sdf, Gf, UsdShade
 from ..factory import Factory, Configuration, InertiaSource
 from ..factory import (WorldBuilder,
+                       BodyBuilder,
                        JointAxis, JointType, JointProperty,
                        GeomBuilder, GeomType, GeomProperty,
                        MeshProperty,
@@ -38,10 +39,12 @@ class LightwheelImporter(Factory):
     parent_map: Dict[Usd.Prim, Usd.Prim]  # type: ignore
     name_map: Dict[Sdf.Path, str]  # type: ignore
     geom_body_map: Dict[Usd.Prim, Usd.Prim]  # type: ignore
+    body_builders_with_inertial: Dict[BodyBuilder, Usd.Prim]  # type: ignore
 
     def __init__(
             self,
             file_path: str,
+            with_physics: bool,
             with_visual: bool,
             with_collision: bool,
             inertia_source: InertiaSource = InertiaSource.FROM_SRC,
@@ -80,13 +83,14 @@ class LightwheelImporter(Factory):
             else:
                 parent_prim = self.stage.GetPrimAtPath(parent_prim_paths[0])
             self.parent_map[child_prim] = parent_prim
+        self.body_builders_with_inertial = {}
         self.geom_body_map = {}
 
         super().__init__(file_path=file_path, config=Configuration(
             model_name=model_name,
             fixed_base=True,
             root_name=None,
-            with_physics=True,
+            with_physics=with_physics,
             with_visual=with_visual,
             with_collision=with_collision,
             default_rgba=default_rgba if default_rgba is not None else numpy.array([0.9, 0.9, 0.9, 1.0]),
@@ -109,12 +113,45 @@ class LightwheelImporter(Factory):
             if prim.IsA(UsdGeom.Gprim): # type: ignore
                 self._import_geom(gprim_prim=prim)
 
-        for joint_prim in [joint_prim for joint_prim in self.stage.Traverse() if
-                           joint_prim.IsA(UsdPhysics.Joint)]:  # type: ignore
-            if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in
-                   self.black_list_names) if self.black_list_names is not None else False:
-                continue
-            self._import_joint_and_inertial(joint_prim=joint_prim)
+        if self.config.with_physics:
+            for gprim_prim in [geom_prim for geom_prim in self.stage.Traverse() if geom_prim.IsA(UsdGeom.Gprim)]:  # type: ignore
+                if gprim_prim.GetParent().GetParent().IsPseudoRoot():
+                    continue
+                body_prim = gprim_prim.GetParent()
+                geom_can_move = gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(gprim_prim).GetRigidBodyEnabledAttr().Get() and not UsdPhysics.RigidBodyAPI(gprim_prim).GetKinematicEnabledAttr().Get() # type: ignore
+                body_can_move = body_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(body_prim).GetRigidBodyEnabledAttr().Get() and not UsdPhysics.RigidBodyAPI(body_prim).GetKinematicEnabledAttr().Get() # type: ignore
+                assert not (geom_can_move and body_can_move), \
+                    f"Geom prim {gprim_prim.GetPath()} its parent have the same RigidBodyAPI state, either both should have it or neither should have it."
+                if (geom_can_move or body_can_move) and gprim_prim in self.geom_body_map:
+                    self.body_builders_with_inertial[self.world_builder.get_body_builder(body_name=self.geom_body_map[gprim_prim].GetName())] = gprim_prim if geom_can_move else body_prim
+
+            for joint_prim in [joint_prim for joint_prim in self.stage.Traverse() if
+                               joint_prim.IsA(UsdPhysics.Joint)]:  # type: ignore
+                if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in
+                       self.black_list_names) if self.black_list_names is not None else False:
+                    continue
+                self._import_joint(joint_prim=joint_prim)
+
+
+            for body_builder, prim in self.body_builders_with_inertial.items():
+                if self._config.inertia_source == InertiaSource.FROM_SRC:
+                    body_prim_api = UsdPhysics.MassAPI(prim)  # type: ignore
+                    body_mass = body_prim_api.GetMassAttr().Get()
+                    body_center_of_mass = body_prim_api.GetCenterOfMassAttr().Get()
+                    body_center_of_mass = numpy.array([*body_center_of_mass]) \
+                        if body_center_of_mass is not None else numpy.zeros(3)
+                    body_diagonal_inertia = body_prim_api.GetDiagonalInertiaAttr().Get()
+                    body_diagonal_inertia = numpy.array([*body_diagonal_inertia]) \
+                        if body_diagonal_inertia is not None else numpy.zeros(3)
+                    body_principal_axes = body_prim_api.GetPrincipalAxesAttr().Get()
+                    body_principal_axes = numpy.array([*body_principal_axes.GetImaginary(), body_principal_axes.GetReal()]) \
+                        if body_principal_axes is not None else numpy.array([0.0, 0.0, 0.0, 1.0])
+                    body_builder.set_inertial(mass=body_mass,
+                                              center_of_mass=body_center_of_mass,
+                                              diagonal_inertia=body_diagonal_inertia,
+                                              principal_axes=body_principal_axes)
+                else:
+                    body_builder.compute_and_set_inertial(inertia_source=self.config.inertia_source)
 
         self.world_builder.export()
 
@@ -149,7 +186,9 @@ class LightwheelImporter(Factory):
         if not gprim_prim.IsA(UsdGeom.Mesh): # type: ignore
             logging.warning(f"Prim {gprim_prim.GetPath()} is not a mesh.")
             return
-        if gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(gprim_prim).GetRigidBodyEnabledAttr().Get(): # type: ignore
+
+        geom_can_move = gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(gprim_prim).GetRigidBodyEnabledAttr().Get() # type: ignore
+        if geom_can_move: # type: ignore
             parent_prim = self.parent_map.get(gprim_prim, gprim_prim.GetParent())
             if parent_prim.IsA(UsdGeom.Gprim) and parent_prim.GetParent() != gprim_prim.GetParent(): # type: ignore
                 parent_prim = gprim_prim.GetParent()
@@ -191,11 +230,17 @@ class LightwheelImporter(Factory):
 
         gprim = UsdGeom.Gprim(gprim_prim) # type: ignore
         geom_name = self.name_map[gprim_prim.GetPath()]
-        geom_is_visible = gprim.GetVisibilityAttr().Get() == UsdGeom.Tokens.inherited and \
-                          gprim.GetPurposeAttr().Get() != UsdGeom.Tokens.guide
+        geom_is_visible = gprim.GetVisibilityAttr().Get() == UsdGeom.Tokens.inherited and gprim.GetPurposeAttr().Get() != UsdGeom.Tokens.guide # type: ignore
+        geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI( # type: ignore
+            gprim_prim).GetCollisionEnabledAttr().Get()  # type: ignore
+
+        self.geom_body_map[gprim_prim] = body_builder.xform.GetPrim()
+
+        if not(geom_is_visible and self.config.with_visual or geom_is_collidable and self.config.with_collision):
+            return
+
         if geom_name not in body_builder._geom_builders:
             logging.info(f"Importing geometry: {gprim_prim.GetPath()} as {geom_name}...")
-            geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI(gprim_prim).GetCollisionEnabledAttr().Get() # type: ignore
             if gprim_prim.IsA(UsdGeom.Cube): # type: ignore
                 geom_type = GeomType.CUBE
             elif gprim_prim.IsA(UsdGeom.Sphere): # type: ignore
@@ -240,7 +285,6 @@ class LightwheelImporter(Factory):
             else:
                 geom_builder.set_transform(scale=geom_scale)
             geom_builder.gprim.CreatePurposeAttr(gprim.GetPurposeAttr().Get()) # type: ignore
-            self.geom_body_map[gprim_prim] = body_builder.xform.GetPrim()
         else:
             geom_builder = body_builder.get_geom_builder(geom_name=geom_name)
 
@@ -348,9 +392,28 @@ class LightwheelImporter(Factory):
             material_property._opacity = 1.0
         return material_path, material_property
 
-    def _import_joint_and_inertial(self, joint_prim: Usd.Prim) -> None:  # type: ignore
+    def _import_joint(self, joint_prim: Usd.Prim) -> None:  # type: ignore
         if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint): # type: ignore
+            prim = self.stage.GetPrimAtPath(UsdPhysics.Joint(joint_prim).GetBody1Rel().GetTargets()[0])  # type: ignore
+            if prim.IsA(UsdGeom.Xform):  # type: ignore
+                body_prim_name = self.name_map[prim.GetPath()]
+                body_builder = self.world_builder.get_body_builder(body_name=body_prim_name)
+                if body_builder in self.body_builders_with_inertial:
+                    del self.body_builders_with_inertial[body_builder]
+                for child_prim in prim.GetAllChildren():
+                    body = self.geom_body_map.get(child_prim, None)
+                    if body is None:
+                        continue
+                    body_builder = self.world_builder.get_body_builder(body_name=body.GetName())
+                    if body_builder in self.body_builders_with_inertial:
+                        del self.body_builders_with_inertial[body_builder]
+            elif prim.IsA(UsdGeom.Gprim):  # type: ignore
+                body = self.geom_body_map.get(prim, None)
+                body_builder = self.world_builder.get_body_builder(body_name=body.GetName())
+                if body_builder in self.body_builders_with_inertial:
+                    del self.body_builders_with_inertial[body_builder]
             return
+
         logging.info(f"Importing joint: {joint_prim.GetPath()}...")
 
         validate_joint_prim(joint_prim)
@@ -404,13 +467,18 @@ class LightwheelImporter(Factory):
                                        joint_pos=child_to_joint_pos,
                                        joint_axis=JointAxis.from_string(joint_axis),
                                        joint_type=joint_type)
-        joint_builder = child_body_builder.add_joint(joint_name=joint_name,
-                                                     joint_property=joint_property)
+        joint_builder = child_body_builder.add_joint(joint_name=joint_name, joint_property=joint_property)
         if joint_prim.IsA(UsdPhysics.RevoluteJoint) or joint_prim.IsA(UsdPhysics.PrismaticJoint): # type: ignore
             joint_builder.joint.CreateUpperLimitAttr(joint.GetUpperLimitAttr().Get())
             joint_builder.joint.CreateLowerLimitAttr(joint.GetLowerLimitAttr().Get())
 
-        child_body_builder.compute_and_set_inertial(inertia_source=self._config.inertia_source)
+        if child_body_builder not in self.body_builders_with_inertial: # type: ignore
+            prim_with_inertial = self.stage.GetPrimAtPath(child_prim_path)
+            if not prim_with_inertial.HasAPI(UsdPhysics.MassAPI) and prim_with_inertial.IsA(UsdGeom.Gprim): # type: ignore
+                prim_with_inertial = prim_with_inertial.GetParent()
+                if not prim_with_inertial.HasAPI(UsdPhysics.MassAPI): # type: ignore
+                    logging.warning(f"Prim {prim_with_inertial.GetPath()} does not have a MassAPI.")
+            self.body_builders_with_inertial[child_body_builder] = prim_with_inertial
 
     @property
     def stage(self) -> Usd.Stage:  # type: ignore

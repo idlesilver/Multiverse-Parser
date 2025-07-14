@@ -147,6 +147,23 @@ class BodyBuilder:
                      principal_axes: numpy.ndarray = numpy.array([0.0, 0.0, 0.0, 1.0])) -> UsdPhysics.MassAPI:
         self.enable_rigid_body()
 
+        if mass is None or mass <= 0.0 or mass > 1E9:
+            logging.warning(f"Mass value {mass} of body {self.xform.GetPrim().GetName()} is invalid. Setting to 1E-2.")
+            mass = 1E-2
+        if any(center_of_mass < -1E9) or any(center_of_mass > 1E9):
+            logging.warning(f"Center of mass {center_of_mass} of body {self.xform.GetPrim().GetName()} is invalid. Setting to [0.0, 0.0, 0.0].")
+            center_of_mass = numpy.array([0.0, 0.0, 0.0])
+        if any(diagonal_inertia <= 0.0) or any(diagonal_inertia > 1E9):
+            new_diagonal_inertia = numpy.array([1E-3, 1E-3, 1E-3]) * mass
+            logging.warning(f"Diagonal inertia {diagonal_inertia} of body {self.xform.GetPrim().GetName()} is invalid. Setting to {[*new_diagonal_inertia]}.")
+            diagonal_inertia = new_diagonal_inertia
+        if not numpy.isclose(numpy.linalg.norm(principal_axes), 1.0, atol=1e-3):
+            logging.warning(f"Principal axes {principal_axes} of body {self.xform.GetPrim().GetName()} is not normalized. Normalizing it.")
+            if numpy.linalg.norm(principal_axes) == 0.0:
+                principal_axes = numpy.array([0.0, 0.0, 0.0, 1.0])
+            else:
+                principal_axes = principal_axes / numpy.linalg.norm(principal_axes)
+
         physics_mass_api = UsdPhysics.MassAPI(self.xform)
         physics_mass_api.CreateMassAttr(mass)
         physics_mass_api.CreateCenterOfMassAttr(Gf.Vec3f(*center_of_mass))

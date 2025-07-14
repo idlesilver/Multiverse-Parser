@@ -272,8 +272,8 @@ class JointProperty:
         self._pos = Gf.Vec3d(*pos)
 
     @property
-    def quat(self) -> Gf.Quatd:
-        return Gf.Quatd(self._quat[3], Gf.Vec3d(*self._quat[:3]))
+    def quat(self) -> Optional[Gf.Quatd]:
+        return Gf.Quatd(self._quat[3], Gf.Vec3d(*self._quat[:3])) if self._quat is not None else None
 
     @quat.setter
     def quat(self, quat: Sequence) -> None:
@@ -284,10 +284,10 @@ class JointProperty:
                 # TODO: Convert quat to axis, then set axis to Z again
                 raise ValueError(f"Joint axis {self.axis} not supported.")
         else:
-            self._quat = self.axis.to_quat()
+            self._quat = self.axis.to_quat() if self.axis is not None else None
 
     @property
-    def axis(self) -> JointAxis:
+    def axis(self) -> Optional[JointAxis]:
         return self._axis
 
     @axis.setter
