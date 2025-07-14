@@ -150,6 +150,20 @@ def triangulate_mesh(in_usd_file: str, out_usd_file: str) -> None:
     process.wait()
 
 
+def extract_transform(prim: Usd.Prim) -> (numpy.ndarray, numpy.ndarray, numpy.ndarray):
+    prim_transform = xform_cache.GetLocalToWorldTransform(prim)
+    prim_quat = prim_transform.RemoveScaleShear().ExtractRotationQuat()
+    prim_scale = numpy.array([prim_transform.GetRow(i).GetLength() for i in range(3)])
+    if prim_transform.GetDeterminant3() < 0:
+        prim_scale = -prim_scale
+    prim_scale = numpy.linalg.norm(numpy.array([prim_quat.Transform(
+        Gf.Vec3d(*v)) for v in numpy.eye(3) * prim_scale]), axis=0)
+    prim_quat = numpy.array([prim_quat.GetImaginary()[0], prim_quat.GetImaginary()[1],
+                             prim_quat.GetImaginary()[2], prim_quat.GetReal()])
+    prim_translate = numpy.array([*prim_transform.ExtractTranslation()]) * prim_scale
+    return prim_translate, prim_quat, prim_scale
+
+
 def get_relative_transform(from_prim: Usd.Prim, to_prim: Usd.Prim) -> Gf.Matrix4d:  # type: ignore
     from_prim_transform = xform_cache.GetLocalToWorldTransform(from_prim)
     from_prim_rotation = from_prim_transform.RemoveScaleShear().ExtractRotation()
@@ -195,13 +209,8 @@ def validate_joint_prim(joint_prim: Usd.Prim) -> None:
         parent_prim_paths) > 0 else joint_prim.GetParent()
     parent_to_child_transform = get_relative_transform(from_prim=parent_prim,
                                                        to_prim=child_prim)
-    joint_transform = xform_cache.GetLocalToWorldTransform(joint_prim)
-    joint_rotation = joint_transform.RemoveScaleShear().ExtractRotation()
-    joint_scale = numpy.array([joint_transform.GetRow(i).GetLength() for i in range(3)])
-    if joint_transform.GetDeterminant3() < 0:
-        joint_scale = -joint_scale
-    joint_scale = numpy.linalg.norm(
-        numpy.array([joint_rotation.TransformDir(Gf.Vec3d(*v)) for v in numpy.eye(3) * joint_scale]), axis=0)
+    _, _, joint_scale = extract_transform(joint_prim)
+
     parent_to_joint_quat = Gf.Quatd(joint.GetLocalRot0Attr().Get())
     parent_to_joint_translate = Gf.Vec3d(*[joint.GetLocalPos0Attr().Get()[i] * joint_scale[i] for i in range(3)])
     parent_to_joint_transform = Gf.Matrix4d().SetTranslateOnly(parent_to_joint_translate).SetRotateOnly(
