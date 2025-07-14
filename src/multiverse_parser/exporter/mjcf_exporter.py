@@ -545,18 +545,16 @@ class MjcfExporter:
                                 mesh_file_dir = os.path.dirname(mesh_file_path)
                                 mesh_file_name = os.path.splitext(os.path.basename(mesh_file_path))[0]
                                 output_mesh_file_path = os.path.join(mesh_file_dir, f"{mesh_file_name}.obj")
+                                logging.warning(f"Mesh {mesh_file_path} has materials, merging textures to {texture_path} and exporting to {output_mesh_file_path}.")
                                 self.factory.export_mesh(in_mesh_file_path=mesh_file_path,
                                                          execute_cmd_between=merge_texture(output_texture_path=texture_path),
-                                                         out_mesh_file_path=output_mesh_file_path,
-                                                         execute_later=True)
+                                                         out_mesh_file_path=output_mesh_file_path)
                                 mesh_file_path = output_mesh_file_path
 
                     if mesh_file_path not in mesh_files:
                         mesh_files[mesh_file_path] = {mesh_file_property}
                     elif mesh_scale not in mesh_files[mesh_file_path]:
                         mesh_files[mesh_file_path].add(mesh_file_property)
-
-        self.factory.execute_cmds()
 
         for mesh_file_path, mesh_file_properties in mesh_files.items():
             mesh_file_name = os.path.splitext(os.path.basename(mesh_file_path))[0]

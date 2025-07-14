@@ -303,7 +303,7 @@ def pack_uv_islands():
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.select_all(action='SELECT')
-    bpy.ops.uv.pack_islands()
+    bpy.ops.uv.smart_project(angle_limit=66, island_margin=0.03)
 
 def set_bake_settings():
     bpy.context.scene.render.engine = 'CYCLES'
@@ -311,6 +311,7 @@ def set_bake_settings():
     bpy.context.scene.cycles.bake_type = 'DIFFUSE'
     bpy.context.scene.render.bake.use_pass_direct = False
     bpy.context.scene.render.bake.use_pass_indirect = False
+    bpy.context.preferences.addons['cycles'].preferences.compute_device_type = 'CUDA'
 
 def bake_and_export(output_texture_path):
     obj = next((obj for obj in bpy.data.objects if obj.type == 'MESH'), None)
@@ -368,7 +369,7 @@ def bake_and_export(output_texture_path):
 
     obj.data.uv_layers.active = obj.data.uv_layers[bake_uv]
     obj.data.uv_layers[bake_uv].active_render = True
-    
+
     bpy.ops.object.mode_set(mode='OBJECT')
 
 bake_and_export('{output_texture_path}')
