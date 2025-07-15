@@ -288,7 +288,7 @@ class UsdImporter(Factory):
             else:
                 raise NotImplementedError(f"Geometry type {gprim_prim.GetTypeName()} is not supported yet.")
 
-            geom_rgba = self.config.default_rgba
+            geom_rgba = self.config.default_rgba.tolist()
             gprim_rgb = gprim.GetDisplayColorAttr().Get()
             gprim_opacity = gprim.GetDisplayOpacityAttr().Get()
             if gprim_rgb is not None and len(gprim_rgb[0]) > 0:
