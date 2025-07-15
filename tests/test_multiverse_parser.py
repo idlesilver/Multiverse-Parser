@@ -138,7 +138,7 @@ class MultiverseExporterTestCase(MultiverseParserTestCase):
             inertia_sources = [InertiaSource.FROM_SRC, InertiaSource.FROM_VISUAL_MESH, InertiaSource.FROM_COLLISION_MESH,
                                InertiaSource.FROM_SRC]
 
-        for i in range(2,3):
+        for i in range(4):
             factory = importer(file_path=input_path,
                                fixed_base=fixed_base,
                                with_physics=with_physics,
@@ -307,9 +307,9 @@ class UsdToMjcfTestCase(MjcfExporterTestCase):
         self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
                                        fixed_base=True, with_physics=True, inertia_source=InertiaSource.FROM_SRC,
                                        exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
-        # self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
-        #                                fixed_base=True, with_physics=False, inertia_source=InertiaSource.FROM_SRC,
-        #                                exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
+        self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
+                                       fixed_base=True, with_physics=False, inertia_source=InertiaSource.FROM_SRC,
+                                       exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
 
 
 class MjcfToMjcfTestCase(MjcfExporterTestCase):
