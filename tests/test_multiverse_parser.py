@@ -169,10 +169,9 @@ class MjcfExporterTestCase(MultiverseExporterTestCase):
         for geom_id in range(mj_model.ngeom):
             geom = mj_model.geom(geom_id)
             if not config.with_visual:
-                numpy.testing.assert_array_almost_equal(geom.rgba, config.default_rgba)
+                self.assertTrue(geom.contype[0] == 0 or geom.conaffinity[0] != 0)
             if not config.with_collision:
-                self.assertEqual(geom.contype[0], 0)
-                self.assertEqual(geom.conaffinity[0], 0)
+                self.assertTrue(geom.contype[0] == 0 and geom.conaffinity[0] == 0)
 
         for body_id in range(1, mj_model.nbody):
             body = mj_model.body(body_id)

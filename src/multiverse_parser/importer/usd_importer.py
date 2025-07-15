@@ -223,6 +223,13 @@ class UsdImporter(Factory):
             logging.warning(f"Prim {gprim_prim.GetPath()} is not a mesh.")
             return
 
+        gprim = UsdGeom.Gprim(gprim_prim)  # type: ignore
+        geom_name = self.name_map[gprim_prim.GetPath()]
+        geom_is_visible = gprim.GetVisibilityAttr().Get() == UsdGeom.Tokens.inherited and gprim.GetPurposeAttr().Get() != UsdGeom.Tokens.guide  # type: ignore
+        geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI(  # type: ignore
+            gprim_prim).GetCollisionEnabledAttr().Get()  # type: ignore
+        if not self.config.with_visual and geom_is_visible or not self.config.with_collision and geom_is_collidable:
+            return
         geom_can_move = gprim_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(gprim_prim).GetRigidBodyEnabledAttr().Get() # type: ignore
         if geom_can_move: # type: ignore
             parent_prim = self.parent_map.get(gprim_prim, gprim_prim.GetParent())
@@ -264,16 +271,7 @@ class UsdImporter(Factory):
         body_name = self.name_map[xform_prim.GetPath()]
         body_builder = self.world_builder.get_body_builder(body_name=body_name)
 
-        gprim = UsdGeom.Gprim(gprim_prim) # type: ignore
-        geom_name = self.name_map[gprim_prim.GetPath()]
-        geom_is_visible = gprim.GetVisibilityAttr().Get() == UsdGeom.Tokens.inherited and gprim.GetPurposeAttr().Get() != UsdGeom.Tokens.guide # type: ignore
-        geom_is_collidable = gprim_prim.HasAPI(UsdPhysics.CollisionAPI) and UsdPhysics.CollisionAPI( # type: ignore
-            gprim_prim).GetCollisionEnabledAttr().Get()  # type: ignore
-
         self.geom_body_map[gprim_prim] = body_builder.xform.GetPrim()
-
-        if not(geom_is_visible and self.config.with_visual or geom_is_collidable and self.config.with_collision):
-            return
 
         if geom_name not in body_builder._geom_builders:
             logging.info(f"Importing geometry: {gprim_prim.GetPath()} as {geom_name}...")
