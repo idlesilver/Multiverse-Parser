@@ -59,17 +59,35 @@ def get_urdf_joint_api(joint_builder: JointBuilder) -> UsdUrdf.UrdfJointAPI:
                 urdf_joint_api.CreateEffortAttr(effort)
                 urdf_joint_api.CreateVelocityAttr(velocity)
 
-        parent_transform = xform_cache.GetLocalToWorldTransform(joint_builder.parent_prim)
-        child_transform = xform_cache.GetLocalToWorldTransform(joint_builder.child_prim)
-        parent_to_child_transform = child_transform * parent_transform.GetInverse()
-        xyz = parent_to_child_transform.ExtractTranslation()
+        parent_to_joint_pos = joint.GetLocalPos0Attr().Get()
+        urdf_joint_api.CreateXyzAttr(parent_to_joint_pos)
 
-        quat = joint.GetLocalRot0Attr().Get() * joint.GetLocalRot1Attr().Get().GetInverse()
-        quat = numpy.array([*quat.GetImaginary(), quat.GetReal()])
-        rpy = Rotation.from_quat(quat).as_euler("xyz", degrees=False)
-        rpy = Gf.Vec3f(*rpy)
-        urdf_joint_api.CreateXyzAttr(xyz)
-        urdf_joint_api.CreateRpyAttr(rpy)
+        joint_quat = joint.GetLocalRot0Attr().Get() * joint.GetLocalRot1Attr().Get().GetInverse()
+        joint_quat = numpy.array([*joint_quat.GetImaginary(), joint_quat.GetReal()])
+        joint_rpy = Rotation.from_quat(joint_quat).as_euler("xyz", degrees=False)
+        joint_rpy = Gf.Vec3f(*joint_rpy)
+        urdf_joint_api.CreateRpyAttr(joint_rpy)
+
+        child_to_joint_pos = joint.GetLocalPos1Attr().Get()
+        child_to_joint_transform = Gf.Matrix4d().SetTranslateOnly(Gf.Vec3d(child_to_joint_pos))
+        child_transform, _ = xform_cache.GetLocalTransformation(joint_builder.child_prim)
+        child_xform = UsdGeom.Xform(joint_builder.child_prim)
+        child_xform.ClearXformOpOrder()
+        child_xform.AddTransformOp().Set(child_to_joint_transform * child_transform)
+
+        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+
+        joint_to_child_transform = child_to_joint_transform.GetInverse()
+        for child_prim in joint_builder.child_prim.GetChildren():
+            if child_prim.IsA(UsdGeom.Xform) or child_prim.IsA(UsdGeom.Gprim):
+                child_transform, _ = xform_cache.GetLocalTransformation(child_prim)
+                child_transform = joint_to_child_transform * child_transform
+                child_xform = UsdGeom.Xform(child_prim)
+                child_xform.ClearXformOpOrder()
+                if child_prim.IsA(UsdGeom.Xform):
+                    child_xform.AddTransformOp().Set(child_transform)
+                else:
+                    child_xform.AddTransformOp().Set(child_transform.SetTranslateOnly(Gf.Vec3d()))
 
     return urdf_joint_api
 
@@ -190,9 +208,10 @@ def get_urdf_geometry_mesh_api(geom_builder: GeomBuilder, mesh_file_relpath: str
         urdf_geometry_mesh_api.CreateFilenameAttr(f"./{mesh_file_relpath}")
         transformation = gprim.GetLocalTransformation()
 
-        # TODO: Doesn't work for negative scale
         scale = [transformation.GetRow(i).GetLength() for i in range(3)]
         scale = Gf.Vec3f(*scale)
+        if transformation.GetDeterminant3() < 0:
+            scale = -scale
         urdf_geometry_mesh_api.CreateScaleAttr(scale)
     else:
         urdf_geometry_mesh_api = UsdUrdf.UrdfGeometryMeshAPI(gprim_prim)

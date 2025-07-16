@@ -127,6 +127,7 @@ class GeomBuilder:
             new_mesh = UsdGeom.Mesh.Define(new_mesh_stage, f"/{mesh_name}")
             new_mesh_stage.SetDefaultPrim(new_mesh.GetPrim())
             UsdGeom.SetStageUpAxis(new_mesh_stage, UsdGeom.Tokens.z)
+            UsdGeom.SetStageMetersPerUnit(new_mesh_stage, UsdGeom.LinearUnits.meters)
 
             mesh_builder = MeshBuilder(stage=new_mesh_stage, mesh_property=mesh_property)
             local_mesh = mesh_builder.build()
@@ -205,7 +206,7 @@ class GeomBuilder:
 
         return material_builder
 
-    def build(self) -> UsdGeom.Gprim:
+    def build(self, approximation_method: UsdGeom.Tokens = UsdGeom.Tokens.none) -> UsdGeom.Gprim:
         if self.rgba is not None:
             self.gprim.CreateDisplayColorAttr(self.rgba[:3])
             self.gprim.CreateDisplayOpacityAttr(self.rgba[3])
@@ -219,7 +220,7 @@ class GeomBuilder:
             physics_collision_api.Apply(self.gprim.GetPrim())
             if self.type == GeomType.MESH:
                 physics_mesh_collision_api = UsdPhysics.MeshCollisionAPI(self.gprim)
-                physics_mesh_collision_api.CreateApproximationAttr("convexHull")
+                physics_mesh_collision_api.CreateApproximationAttr(approximation_method)
                 physics_mesh_collision_api.Apply(self.gprim.GetPrim())
 
         return self.gprim
@@ -279,7 +280,7 @@ class GeomBuilder:
         if self.inertial is None:
             self._inertial = self.origin_inertial
 
-            gprim_transform = self.gprim.GetLocalTransformation()
+            gprim_transform = self.gprim.GetLocalTransformation().RemoveScaleShear()
             gprim_pos = gprim_transform.ExtractTranslation()
             gprim_pos = numpy.array([[*gprim_pos]])
             gprim_quat = gprim_transform.ExtractRotationQuat()

@@ -67,6 +67,7 @@ class BodyBuilder:
             else:
                 raise ValueError(f"Prim at path {relative_to_xform.GetPath()} not found.")
 
+        self._xform.ClearXformOpOrder()
         self._xform.AddTransformOp().Set(mat)
 
     def add_joint(self, joint_name: str, joint_property: JointProperty) -> JointBuilder:
@@ -135,7 +136,7 @@ class BodyBuilder:
 
     def get_geom_builder(self, geom_name: str) -> GeomBuilder:
         geom_name = modify_name(in_name=geom_name)
-        if geom_name not in self._joint_builders:
+        if geom_name not in self._geom_builders:
             raise ValueError(f"Geom {geom_name} not found in {self.__class__.__name__}.")
         return self._geom_builders[geom_name]
 
@@ -145,6 +146,23 @@ class BodyBuilder:
                      diagonal_inertia: numpy.ndarray,
                      principal_axes: numpy.ndarray = numpy.array([0.0, 0.0, 0.0, 1.0])) -> UsdPhysics.MassAPI:
         self.enable_rigid_body()
+
+        if mass is None or mass <= 0.0 or mass > 1E9:
+            logging.warning(f"Mass value {mass} of body {self.xform.GetPrim().GetName()} is invalid. Setting to 1E-2.")
+            mass = 1E-2
+        if any([x < -1E9 for x in center_of_mass]) or any([x > 1E9 for x in center_of_mass]):
+            logging.warning(f"Center of mass {center_of_mass} of body {self.xform.GetPrim().GetName()} is invalid. Setting to [0.0, 0.0, 0.0].")
+            center_of_mass = numpy.array([0.0, 0.0, 0.0])
+        if any(diagonal_inertia <= 0.0) or any(diagonal_inertia > 1E9):
+            new_diagonal_inertia = numpy.array([1E-3, 1E-3, 1E-3]) * mass
+            logging.warning(f"Diagonal inertia {diagonal_inertia} of body {self.xform.GetPrim().GetName()} is invalid. Setting to {[*new_diagonal_inertia]}.")
+            diagonal_inertia = new_diagonal_inertia
+        if not numpy.isclose(numpy.linalg.norm(numpy.array([*principal_axes])), 1.0, atol=1e-3):
+            logging.warning(f"Principal axes {principal_axes} of body {self.xform.GetPrim().GetName()} is not normalized. Normalizing it.")
+            if numpy.linalg.norm(principal_axes) == 0.0:
+                principal_axes = numpy.array([0.0, 0.0, 0.0, 1.0])
+            else:
+                principal_axes = principal_axes / numpy.linalg.norm(principal_axes)
 
         physics_mass_api = UsdPhysics.MassAPI(self.xform)
         physics_mass_api.CreateMassAttr(mass)

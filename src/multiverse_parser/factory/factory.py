@@ -195,7 +195,7 @@ class Factory:
 
         self.mesh_file_path_dict[mesh_file_path] = tmp_usd_mesh_file_path, tmp_mesh_file_path
 
-        logging.info("Importing mesh from", mesh_file_path, "to", tmp_usd_mesh_file_path, "and", tmp_mesh_file_path, ".")
+        logging.info(f"Importing mesh from {mesh_file_path} to {tmp_usd_mesh_file_path} and {tmp_mesh_file_path}.")
         mesh_file_path_clone = os.path.join(os.path.dirname(mesh_file_path),
                                             f"clone_{os.path.basename(mesh_file_path)}")
         if mesh_file_extension.lower() in [".usd", ".usda", ".usdz"]:
@@ -240,6 +240,7 @@ class Factory:
     def export_mesh(self,
                     in_mesh_file_path: str,
                     out_mesh_file_path: str,
+                    execute_cmd_between: str = "",
                     mesh_scale: numpy.ndarray = numpy.array([1.0, 1.0, 1.0]),
                     execute_later: bool = False) -> None:
         in_mesh_file_extension = os.path.splitext(in_mesh_file_path)[1]
@@ -260,6 +261,8 @@ class Factory:
             cmd = import_dae([in_mesh_file_path], mesh_scale)
         else:
             raise ValueError(f"Unsupported file extension {in_mesh_file_extension}.")
+
+        cmd += execute_cmd_between
 
         if out_mesh_file_extension.lower() in [".usd", ".usda", ".usdz"]:
             cmd += export_usd(out_mesh_file_path)
@@ -293,8 +296,10 @@ class Factory:
         # elif len(self.cmds) == 1:
         #     logging.info(f"Executing [blender --background --python-expr\nimport bpy{self.cmds[0]}]...")
 
+        max_processes_count = 10
         processes = []
-        for sub_cmd in self.cmds:
+        processes_count = 0
+        for i, sub_cmd in enumerate(self.cmds):
             cmd = ["blender", "--background", "--quiet", "--python-expr", "import bpy" + sub_cmd]
             logger = logging.getLogger(__name__)
             if logger.isEnabledFor(logging.DEBUG):
@@ -302,9 +307,16 @@ class Factory:
             else:
                 process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL)
             processes.append(process)
-        
-        for process in processes:
-            process.wait()
+            processes_count += 1
+            if processes_count >= max_processes_count or i == len(self.cmds) - 1:
+                logging.info(f"Executing {processes_count} commands in parallel...")
+                if i == len(self.cmds) - 1:
+                    max_processes_count = processes_count
+                for j, process in enumerate(processes):
+                    process.wait()
+                    logging.info(f"Finished executing {i - max_processes_count + j + 2} / {len(self.cmds)} commands.")
+                processes = []
+                processes_count = 0
 
         self._cmds = []
 

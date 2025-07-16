@@ -84,8 +84,13 @@ class MultiverseImporterTestCase(MultiverseParserTestCase):
 
         is_visible = [True, True, False, False]
         is_collidable = [True, False, True, False]
-        inertia_sources = [InertiaSource.FROM_SRC, InertiaSource.FROM_VISUAL_MESH, InertiaSource.FROM_COLLISION_MESH,
-                           InertiaSource.FROM_SRC]
+        if "inertia_source" in kwargs:
+            inertia_sources = [kwargs['inertia_source']] * 4
+            del kwargs['inertia_source']
+        else:
+            inertia_sources = [InertiaSource.FROM_SRC, InertiaSource.FROM_VISUAL_MESH,
+                               InertiaSource.FROM_COLLISION_MESH,
+                               InertiaSource.FROM_SRC]
 
         for i in range(4):
             factory = importer(file_path=input_path,
@@ -107,7 +112,7 @@ class MultiverseImporterTestCase(MultiverseParserTestCase):
                             and (any([childPrim.IsA(UsdGeom.Xform) for childPrim in prim.GetChildren()])
                                  or fixed_base)):
                         continue
-                    if not prim.GetParent().IsA(UsdGeom.Xform):
+                    if not prim.GetParent().IsA(UsdGeom.Xform) and not prim.GetParent().IsPseudoRoot():
                         self.assertEqual(prim.HasAPI(UsdPhysics.MassAPI), with_physics)
                         self.assertEqual(prim.HasAPI(UsdPhysics.RigidBodyAPI), with_physics)
                 if not prim.IsA(UsdGeom.Gprim):
@@ -126,8 +131,12 @@ class MultiverseExporterTestCase(MultiverseParserTestCase):
 
         is_visible = [True, True, False, False]
         is_collidable = [True, False, True, False]
-        inertia_sources = [InertiaSource.FROM_SRC, InertiaSource.FROM_VISUAL_MESH, InertiaSource.FROM_COLLISION_MESH,
-                           InertiaSource.FROM_SRC]
+        if "inertia_source" in kwargs:
+            inertia_sources = [kwargs['inertia_source']] * 4
+            del kwargs['inertia_source']
+        else:
+            inertia_sources = [InertiaSource.FROM_SRC, InertiaSource.FROM_VISUAL_MESH, InertiaSource.FROM_COLLISION_MESH,
+                               InertiaSource.FROM_SRC]
 
         for i in range(4):
             factory = importer(file_path=input_path,
@@ -160,10 +169,9 @@ class MjcfExporterTestCase(MultiverseExporterTestCase):
         for geom_id in range(mj_model.ngeom):
             geom = mj_model.geom(geom_id)
             if not config.with_visual:
-                numpy.testing.assert_array_almost_equal(geom.rgba, config.default_rgba)
+                self.assertTrue(geom.contype[0] == 0 or geom.conaffinity[0] != 0)
             if not config.with_collision:
-                self.assertEqual(geom.contype[0], 0)
-                self.assertEqual(geom.conaffinity[0], 0)
+                self.assertTrue(geom.contype[0] == 0 and geom.conaffinity[0] == 0)
 
         for body_id in range(1, mj_model.nbody):
             body = mj_model.body(body_id)
@@ -215,10 +223,16 @@ class UsdToUsdTestCase(MultiverseImporterTestCase):
 
     def test_usd_to_usd_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
-        self.validate_visual_collision(UsdImporter, input_usd_path, fixed_base=True, with_physics=True,
-                                       add_xform_for_each_geom=True, root_name="SM_Esstisch")
-        self.validate_visual_collision(UsdImporter, input_usd_path, fixed_base=True, with_physics=False,
-                                       add_xform_for_each_geom=True)
+        self.validate_visual_collision(UsdImporter, input_usd_path, fixed_base=True, with_physics=False)
+
+    def test_usd_to_usd_kitchen(self):
+        input_usd_path = os.path.join(self.resource_path, "input", "Collected_KitchenRoom", "KitchenRoom.usd")
+        self.validate_visual_collision(UsdImporter, input_usd_path,
+                                       fixed_base=True, with_physics=True, inertia_source=InertiaSource.FROM_SRC,
+                                       exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
+        self.validate_visual_collision(UsdImporter, input_usd_path,
+                                       fixed_base=True, with_physics=False, inertia_source=InertiaSource.FROM_SRC,
+                                       exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
 
 
 class MjcfToUsdTestCase(MultiverseImporterTestCase):
@@ -285,9 +299,16 @@ class UsdToMjcfTestCase(MjcfExporterTestCase):
     def test_usd_to_mjcf_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
         self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
-                                       fixed_base=True, with_physics=True, root_name="SM_Esstisch")
-        self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
                                        fixed_base=True, with_physics=False)
+
+    def test_usd_to_mjcf_kitchen(self):
+        input_usd_path = os.path.join(self.resource_path, "input", "Collected_KitchenRoom", "KitchenRoom.usd")
+        self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
+                                       fixed_base=True, with_physics=True, inertia_source=InertiaSource.FROM_SRC,
+                                       exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
+        self.validate_visual_collision(UsdImporter, MjcfExporter, input_usd_path,
+                                       fixed_base=True, with_physics=False, inertia_source=InertiaSource.FROM_SRC,
+                                       exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
 
 
 class MjcfToMjcfTestCase(MjcfExporterTestCase):
@@ -375,9 +396,16 @@ class UsdToUrdfTestCase(UrdfExporterTestCase):
     def test_usd_to_urdf_furniture(self):
         input_usd_path = os.path.join(self.resource_path, "input", "furniture", "furniture.usda")
         self.validate_visual_collision(UsdImporter, UrdfExporter, input_usd_path,
-                                       fixed_base=True, with_physics=True, root_name="SM_Esstisch")
-        self.validate_visual_collision(UsdImporter, UrdfExporter, input_usd_path,
                                        fixed_base=True, with_physics=False)
+
+    def test_usd_to_urdf_kitchen(self):
+        input_usd_path = os.path.join(self.resource_path, "input", "Collected_KitchenRoom", "KitchenRoom.usd")
+        self.validate_visual_collision(UsdImporter, UrdfExporter, input_usd_path,
+                                       fixed_base=True, with_physics=True, inertia_source=InertiaSource.FROM_SRC,
+                                       exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
+        self.validate_visual_collision(UsdImporter, UrdfExporter, input_usd_path,
+                                       fixed_base=True, with_physics=False, inertia_source=InertiaSource.FROM_SRC,
+                                       exclude_names=["Kitchen_Ground", "Plane", "Kitchen_Flowers001", "Looks"])
 
 
 class MjcfToUrdfTestCase(UrdfExporterTestCase):

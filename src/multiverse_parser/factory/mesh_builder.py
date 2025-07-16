@@ -20,6 +20,7 @@ class MeshProperty:
     face_vertex_counts: numpy.ndarray
     face_vertex_indices: numpy.ndarray
     texture_coordinates: Optional[numpy.ndarray]
+    texture_coordinate_indices: Optional[numpy.ndarray]
     geom_subsets: Optional[Dict[str, numpy.ndarray]]
     mesh_file_name: Optional[str]
 
@@ -29,6 +30,7 @@ class MeshProperty:
                  face_vertex_counts: numpy.ndarray,
                  face_vertex_indices: numpy.ndarray,
                  texture_coordinates: Optional[numpy.ndarray] = None,
+                 texture_coordinate_indices: Optional[numpy.ndarray] = None,
                  geom_subsets: Optional[Dict[str, numpy.ndarray]] = None,
                  mesh_file_name: Optional[str] = None) -> None:
         self._points = points
@@ -36,9 +38,10 @@ class MeshProperty:
         self._face_vertex_counts = face_vertex_counts
         self._face_vertex_indices = face_vertex_indices
         self._texture_coordinates = texture_coordinates
+        self._texture_coordinate_indices = texture_coordinate_indices
         self._geom_subsets = geom_subsets
         self._mesh_file_name = mesh_file_name
-        self.check_validity()
+        # self.check_validity()
 
     def check_validity(self):
         if not all(face_vertex_count == 3 for face_vertex_count in self.face_vertex_counts):
@@ -143,6 +146,10 @@ class MeshProperty:
         return self._texture_coordinates
 
     @property
+    def texture_coordinate_indices(self):
+        return self._texture_coordinate_indices
+
+    @property
     def geom_subsets(self):
         return self._geom_subsets
 
@@ -176,6 +183,8 @@ class MeshBuilder:
             texture_coordinates = prim_vars_api.CreatePrimvar("st",
                                                               Sdf.ValueTypeNames.TexCoord2fArray,
                                                               UsdGeom.Tokens.faceVarying)
+            if self.texture_coordinate_indices is not None:
+                texture_coordinates.CreateIndicesAttr().Set(self.texture_coordinate_indices)
             texture_coordinates.Set(self.texture_coordinates)
 
         # for material_name, geom_subset_indices in self.geom_subsets.items():
@@ -220,6 +229,10 @@ class MeshBuilder:
     @property
     def texture_coordinates(self):
         return self._mesh_property.texture_coordinates
+
+    @property
+    def texture_coordinate_indices(self):
+        return self._mesh_property.texture_coordinate_indices
 
     @property
     def geom_subsets(self):

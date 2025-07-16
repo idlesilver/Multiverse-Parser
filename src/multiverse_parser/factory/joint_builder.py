@@ -9,7 +9,7 @@ from scipy.spatial.transform import Rotation
 from mujoco import mjtJoint
 
 from multiverse_parser import logging
-from ..utils import modify_name, xform_cache
+from ..utils import modify_name, xform_cache, validate_joint_prim, get_relative_transform
 
 from pxr import Usd, UsdGeom, Gf, UsdPhysics, Sdf
 
@@ -272,8 +272,8 @@ class JointProperty:
         self._pos = Gf.Vec3d(*pos)
 
     @property
-    def quat(self) -> Gf.Quatd:
-        return Gf.Quatd(self._quat[3], Gf.Vec3d(*self._quat[:3]))
+    def quat(self) -> Optional[Gf.Quatd]:
+        return Gf.Quatd(self._quat[3], Gf.Vec3d(*self._quat[:3])) if self._quat is not None else None
 
     @quat.setter
     def quat(self, quat: Sequence) -> None:
@@ -284,10 +284,10 @@ class JointProperty:
                 # TODO: Convert quat to axis, then set axis to Z again
                 raise ValueError(f"Joint axis {self.axis} not supported.")
         else:
-            self._quat = self.axis.to_quat()
+            self._quat = self.axis.to_quat() if self.axis is not None else None
 
     @property
-    def axis(self) -> JointAxis:
+    def axis(self) -> Optional[JointAxis]:
         return self._axis
 
     @axis.setter
@@ -339,22 +339,21 @@ class JointBuilder:
         self._joint.GetBody0Rel().SetTargets([self.parent_prim.GetPath()])
         self._joint.GetBody1Rel().SetTargets([self.child_prim.GetPath()])
 
-        body1_transform = xform_cache.GetLocalToWorldTransform(self.parent_prim)
-        body1_rot = body1_transform.ExtractRotationQuat()
+        parent_to_child_transform = get_relative_transform(from_prim=self.parent_prim,
+                                                          to_prim=self.child_prim)
+        parent_to_child_pos = parent_to_child_transform.ExtractTranslation()
+        parent_to_child_quat = parent_to_child_transform.ExtractRotationQuat()
 
-        body2_transform = xform_cache.GetLocalToWorldTransform(self.child_prim)
-        body1_to_body2_transform = body2_transform * body1_transform.GetInverse()
-        body1_to_body2_pos = body1_to_body2_transform.ExtractTranslation()
-        body1_to_body2_rot = body1_to_body2_transform.ExtractRotationQuat()
+        self._joint.CreateLocalPos0Attr(self.pos + parent_to_child_pos)
+        self._joint.CreateLocalPos1Attr(self.pos)
 
-        self._joint.CreateLocalPos0Attr(body1_rot.Transform(self.pos) + body1_to_body2_pos)
-        self._joint.CreateLocalPos1Attr(Gf.Vec3d())
-
-        self._joint.CreateLocalRot0Attr(Gf.Quatf(body1_to_body2_rot * self.quat))
+        self._joint.CreateLocalRot0Attr(Gf.Quatf(parent_to_child_quat * self.quat))
         self._joint.CreateLocalRot1Attr(Gf.Quatf(self.quat))
 
         if self.type == JointType.PRISMATIC or self.type == JointType.REVOLUTE or self.type == JointType.CONTINUOUS:
             self._joint.CreateAxisAttr("Z")
+
+        validate_joint_prim(self._joint.GetPrim())
 
         return self._joint
 
