@@ -381,5 +381,5 @@ def bake_and_export(output_texture_path):
 
     bpy.ops.object.mode_set(mode='OBJECT')
 
-bake_and_export('{output_texture_path}')
+bake_and_export(r'{output_texture_path}')
 """
