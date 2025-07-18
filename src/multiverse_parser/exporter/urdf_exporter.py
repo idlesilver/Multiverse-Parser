@@ -68,26 +68,25 @@ def get_urdf_joint_api(joint_builder: JointBuilder) -> UsdUrdf.UrdfJointAPI:
         joint_rpy = Gf.Vec3f(*joint_rpy)
         urdf_joint_api.CreateRpyAttr(joint_rpy)
 
-        # child_to_joint_pos = joint.GetLocalPos1Attr().Get()
-        # child_to_joint_transform = Gf.Matrix4d().SetTranslateOnly(Gf.Vec3d(child_to_joint_pos))
-        # child_transform, _ = xform_cache.GetLocalTransformation(joint_builder.child_prim)
-        # child_xform = UsdGeom.Xform(joint_builder.child_prim)
-        # child_xform.ClearXformOpOrder()
-        # child_xform.AddTransformOp().Set(child_to_joint_transform * child_transform)
+        child_to_joint_pos = joint.GetLocalPos1Attr().Get()
+        child_to_joint_transform = Gf.Matrix4d().SetTranslateOnly(Gf.Vec3d(child_to_joint_pos))
+        child_transform, _ = xform_cache.GetLocalTransformation(joint_builder.child_prim)
+        child_xform = UsdGeom.Xform(joint_builder.child_prim)
+        child_xform.ClearXformOpOrder()
+        child_xform.AddTransformOp().Set(child_to_joint_transform * child_transform)
 
-        # joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
+        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
 
-        # joint_to_child_transform = child_to_joint_transform.GetInverse()
-        # for child_prim in joint_builder.child_prim.GetChildren():
-        #     if child_prim.IsA(UsdGeom.Xform) or child_prim.IsA(UsdGeom.Gprim):
-        #         child_transform, _ = xform_cache.GetLocalTransformation(child_prim)
-        #         child_transform = joint_to_child_transform * child_transform
-        #         child_xform = UsdGeom.Xform(child_prim)
-        #         child_xform.ClearXformOpOrder()
-        #         if child_prim.IsA(UsdGeom.Xform):
-        #             child_xform.AddTransformOp().Set(child_transform)
-        #         else:
-        #             child_xform.AddTransformOp().Set(child_transform.SetTranslateOnly(Gf.Vec3d()))
+        joint_to_child_transform = child_to_joint_transform.GetInverse()
+        joint_to_child_translation = joint_to_child_transform.ExtractTranslation()
+        for child_prim in joint_builder.child_prim.GetChildren():
+            if child_prim.IsA(UsdGeom.Xform) or child_prim.IsA(UsdGeom.Gprim):
+                child_transform, _ = xform_cache.GetLocalTransformation(child_prim)
+                child_translation = child_transform.ExtractTranslation()
+                child_transform = child_transform.SetTranslateOnly(joint_to_child_translation + child_translation)
+                child_xform = UsdGeom.Xform(child_prim)
+                child_xform.ClearXformOpOrder()
+                child_xform.AddTransformOp().Set(child_transform)
 
     return urdf_joint_api
 
