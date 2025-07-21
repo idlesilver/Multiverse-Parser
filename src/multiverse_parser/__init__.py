@@ -41,7 +41,7 @@ else:
     os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', '..', 'USD', 'linux', 'lib'))}"
     os.environ["PATH"] += f":{os.path.abspath(os.path.join(current_dir, '..', '..', 'USD', 'linux', 'plugin', 'usd'))}"
 sys.path.insert(0, usd_dir)
-sys.path = [p for p in sys.path if not p.startswith("/opt/ros")] # Avoid ROS packages interfering
+sys.path = [p for p in sys.path if not p.startswith("/opt/ros")] # Avoid ROS packages interfering, e.g. urdf_parser_py
 
 from .importer import UrdfImporter, MjcfImporter, UsdImporter
 from .exporter import UrdfExporter, MjcfExporter
