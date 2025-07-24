@@ -110,22 +110,21 @@ class JointAxis(Enum):
         else:
             return None
 
-    @classmethod
-    def to_string(cls) -> str:
-        if cls == JointAxis.X:
+    def to_string(self) -> str:
+        if self == JointAxis.X:
             return "X"
-        elif cls == JointAxis.Y:
+        elif self == JointAxis.Y:
             return "Y"
-        elif cls == JointAxis.Z:
+        elif self == JointAxis.Z:
             return "Z"
-        elif cls == JointAxis.NEG_X:
+        elif self == JointAxis.NEG_X:
             return "-X"
-        elif cls == JointAxis.NEG_Y:
+        elif self == JointAxis.NEG_Y:
             return "-Y"
-        elif cls == JointAxis.NEG_Z:
+        elif self == JointAxis.NEG_Z:
             return "-Z"
         else:
-            raise ValueError(f"Joint axis {cls} not supported.")
+            raise ValueError(f"Joint axis {self} not supported.")
 
     @classmethod
     def from_array(cls, joint_axis: numpy.ndarray) -> Optional["JointAxis"]:
@@ -351,7 +350,7 @@ class JointBuilder:
         self._joint.CreateLocalRot1Attr(Gf.Quatf(self.quat))
 
         if self.type == JointType.PRISMATIC or self.type == JointType.REVOLUTE or self.type == JointType.CONTINUOUS:
-            self._joint.CreateAxisAttr("Z")
+            self._joint.CreateAxisAttr(self.axis.to_string())
 
         validate_joint_prim(self._joint.GetPrim())
 
