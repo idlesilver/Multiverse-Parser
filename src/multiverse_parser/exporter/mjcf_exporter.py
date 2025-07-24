@@ -867,7 +867,8 @@ class MjcfExporter:
         free_body_names = set()
         for xform_prim in [prim for prim in stage.TraverseAll() if
                            prim.IsA(UsdGeom.Xform) and
-                           prim.HasAPI(UsdMujoco.MujocoBodyInertialAPI)]:  # type: ignore
+                           prim.HasAPI(UsdMujoco.MujocoBodyInertialAPI) and
+                           prim.HasAPI(UsdPhysics.RigidBodyAPI)]:  # type: ignore
             if xform_prim.GetName() in non_free_body_names:
                 continue
             sibling_body_names = [sibling_prim.GetName() for sibling_prim in xform_prim.GetParent().GetChildren()]

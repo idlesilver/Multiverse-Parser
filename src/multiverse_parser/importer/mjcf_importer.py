@@ -324,9 +324,11 @@ class MjcfImporter(Factory):
                 body_builder.set_inertial(mass=body_mass,
                                           center_of_mass=body_center_of_mass,
                                           diagonal_inertia=body_diagonal_inertia,
-                                          principal_axes=body_principal_axes)
+                                          principal_axes=body_principal_axes,
+                                          enable_rigid_body=mj_body.dofnum[0] > 0)
             else:
-                _, physics_mass_api = body_builder.compute_and_set_inertial(inertia_source=self._config.inertia_source)
+                _, physics_mass_api = body_builder.compute_and_set_inertial(inertia_source=self._config.inertia_source,
+                                                                            enable_rigid_body=mj_body.dofnum[0] > 0)
 
     def _import_geom(self, body_builder: BodyBuilder, geom_id: int) -> Optional[GeomBuilder]:
         mj_geom = self.mj_model.geom(geom_id)

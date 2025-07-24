@@ -144,8 +144,10 @@ class BodyBuilder:
                      mass: float,
                      center_of_mass: numpy.ndarray,
                      diagonal_inertia: numpy.ndarray,
-                     principal_axes: numpy.ndarray = numpy.array([0.0, 0.0, 0.0, 1.0])) -> UsdPhysics.MassAPI:
-        self.enable_rigid_body()
+                     principal_axes: numpy.ndarray = numpy.array([0.0, 0.0, 0.0, 1.0]),
+                     enable_rigid_body: bool = True) -> UsdPhysics.MassAPI:
+        if enable_rigid_body:
+            self.enable_rigid_body()
 
         if mass is None or mass <= 0.0 or mass > 1E9:
             logging.warning(f"Mass value {mass} of body {self.xform.GetPrim().GetName()} is invalid. Setting to 1E-2.")
@@ -173,7 +175,7 @@ class BodyBuilder:
 
         return physics_mass_api
 
-    def compute_and_set_inertial(self, inertia_source: InertiaSource) -> (GeomInertial, UsdPhysics.MassAPI):
+    def compute_and_set_inertial(self, inertia_source: InertiaSource, enable_rigid_body: bool = True) -> (GeomInertial, UsdPhysics.MassAPI):
         body_inertial = GeomInertial(mass=0.0,
                                      center_of_mass=numpy.zeros((1, 3)),
                                      inertia_tensor=numpy.zeros((3, 3)))
@@ -205,7 +207,8 @@ class BodyBuilder:
         return body_inertial, self.set_inertial(mass=body_inertial.mass,
                                                 center_of_mass=body_inertial.center_of_mass[0],
                                                 diagonal_inertia=diagonal_inertia,
-                                                principal_axes=principal_axes)
+                                                principal_axes=principal_axes,
+                                                enable_rigid_body=enable_rigid_body)
 
     def add_child_body_builder(self, child_body_builder: BodyBuilder) -> None:
         child_body_name = child_body_builder.xform.GetPrim().GetName()
