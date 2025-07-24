@@ -430,7 +430,7 @@ class UsdImporter(Factory):
         joint = UsdPhysics.Joint(joint_prim)  # type: ignore
         child_prim_path = joint.GetBody1Rel().GetTargets()[0]
         child_prim = self.stage.GetPrimAtPath(child_prim_path)
-        if child_prim not in self.geom_body_map:
+        if child_prim.IsA(UsdGeom.Gprim) and child_prim not in self.geom_body_map:
             return
         if not joint_prim.IsA(UsdPhysics.RevoluteJoint) and not joint_prim.IsA(UsdPhysics.PrismaticJoint): # type: ignore
             prim = self.stage.GetPrimAtPath(UsdPhysics.Joint(joint_prim).GetBody1Rel().GetTargets()[0])  # type: ignore
