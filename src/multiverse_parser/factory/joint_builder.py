@@ -277,11 +277,13 @@ class JointProperty:
     @quat.setter
     def quat(self, quat: Sequence) -> None:
         if quat is not None:
-            if self.axis == JointAxis.Z:
-                self._quat = numpy.array([*quat])
-            else:
-                # TODO: Convert quat to axis, then set axis to Z again
-                raise ValueError(f"Joint axis {self.axis} not supported.")
+            self._quat = numpy.array([*quat])
+            if self.axis != JointAxis.Z:
+                r_input = Rotation.from_quat(quat, scalar_first=False)
+                r_correction = Rotation.from_quat(self.axis.to_quat(), scalar_first=False)
+                r_final = r_input * r_correction
+                self._quat = r_final.as_quat()
+                self._axis = JointAxis.Z
         else:
             self._quat = self.axis.to_quat() if self.axis is not None else None
 
@@ -348,6 +350,9 @@ class JointBuilder:
 
         self._joint.CreateLocalRot0Attr(Gf.Quatf(parent_to_child_quat * self.quat))
         self._joint.CreateLocalRot1Attr(Gf.Quatf(self.quat))
+
+        if "r_knee_pitch" in self._joint.GetPrim().GetName():
+            pass
 
         if self.type == JointType.PRISMATIC or self.type == JointType.REVOLUTE or self.type == JointType.CONTINUOUS:
             self._joint.CreateAxisAttr(self.axis.to_string())

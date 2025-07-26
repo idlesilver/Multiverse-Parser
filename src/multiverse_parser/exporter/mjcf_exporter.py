@@ -811,9 +811,9 @@ class MjcfExporter:
             joint_range = mujoco_joint_api.GetRangeAttr().Get()
             joint.set("range", " ".join(map(str, joint_range)))
 
-        # if joint_builder.type != JointType.SPHERICAL:
-        #     joint_axis = mujoco_joint_api.GetAxisAttr().Get()
-        #     joint.set("axis", " ".join(map(str, joint_axis)))
+        if joint_builder.type != JointType.SPHERICAL:
+            joint_axis = mujoco_joint_api.GetAxisAttr().Get()
+            joint.set("axis", " ".join(map(str, joint_axis)))
 
         urdf_joint_api = get_urdf_joint_api(joint_builder=joint_builder)
         if urdf_joint_api is not None and len(urdf_joint_api.GetJointRel().GetTargets()) > 0:

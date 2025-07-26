@@ -83,7 +83,7 @@ class UsdImporter(Factory):
             if any(black_list_name in str(prim.GetPath()) for black_list_name in
                    exclude_names) if exclude_names is not None else False:
                 continue
-            if not prim.GetParent().IsA(UsdGeom.Xform) and not prim.GetParent().IsA(UsdGeom.Scope): # type: ignore
+            if not prim.GetParent().IsA(UsdGeom.Xform) and not prim.IsA(UsdPhysics.Joint) and not prim.GetParent().IsA(UsdGeom.Scope): # type: ignore
                 continue
             parent_prim = prim
             while not parent_prim.IsPseudoRoot():
@@ -92,7 +92,7 @@ class UsdImporter(Factory):
                 parent_prim = parent_prim.GetParent()
             if parent_prim.IsPseudoRoot():
                 continue
-            if prim.IsA(UsdGeom.Xform) or prim.IsA(UsdGeom.Gprim) or prim.IsA(UsdGeom.Mesh) or prim.IsA(UsdGeom.Scope): # type: ignore
+            if prim.IsA(UsdPhysics.Joint) or prim.IsA(UsdGeom.Xform) or prim.IsA(UsdGeom.Gprim) or prim.IsA(UsdGeom.Mesh) or prim.IsA(UsdGeom.Scope): # type: ignore
                 prim_name = prim.GetName()
                 idx = 0
                 while prim_name in self.name_map.values():
@@ -469,6 +469,7 @@ class UsdImporter(Factory):
             logging.warning(f"Joint {joint_prim.GetPath()} has negative scale, flipping the sign from {joint_scale} to {-joint_scale}.")
             joint_scale = -joint_scale
         joint_scale = numpy.linalg.norm(numpy.array([joint_rotation.TransformDir(Gf.Vec3d(*v)) for v in numpy.eye(3) * joint_scale]), axis=0) # type: ignore
+        child_body_name = self.name_map[child_prim.GetPath()]
         if child_prim.IsA(UsdGeom.Gprim): # type: ignore
             parent_prim = self.parent_map[child_prim]
             child_prim = self.geom_body_map[child_prim]
@@ -483,12 +484,13 @@ class UsdImporter(Factory):
             child_to_joint_pos = numpy.array([*child_to_joint_pos])
         else:
             child_to_joint_pos = numpy.array([0.0, 0.0, 0.0])
-        child_body_name = child_prim.GetName()
-        joint_name = f"{child_body_name}_{joint.GetPrim().GetName()}"
+        joint_name = self.name_map[joint_prim.GetPath()]
         child_body_builder = self.world_builder.get_body_builder(body_name=child_body_name)
         child_prim = child_body_builder.xform.GetPrim()
         parent_prim = child_prim.GetParent()
 
+        joint_quat = joint.GetLocalRot1Attr().Get()
+        joint_quat = numpy.array([*joint_quat.GetImaginary(), joint_quat.GetReal()])
         if joint_prim.IsA(UsdPhysics.RevoluteJoint): # type: ignore
             joint = UsdPhysics.RevoluteJoint(joint) # type: ignore
             joint_axis = joint.GetAxisAttr().Get()
@@ -497,15 +499,16 @@ class UsdImporter(Factory):
             else:
                 joint_type = JointType.CONTINUOUS
         elif joint_prim.IsA(UsdPhysics.PrismaticJoint): # type: ignore
-            joint_type = JointType.PRISMATIC
             joint = UsdPhysics.PrismaticJoint(joint) # type: ignore
             joint_axis = joint.GetAxisAttr().Get()
+            joint_type = JointType.PRISMATIC
         else:
             raise ValueError(f"Joint type {joint_prim} not supported.")
 
         joint_property = JointProperty(joint_parent_prim=parent_prim,
                                        joint_child_prim=child_prim,
                                        joint_pos=child_to_joint_pos,
+                                       joint_quat=joint_quat,
                                        joint_axis=JointAxis.from_string(joint_axis),
                                        joint_type=joint_type)
         joint_builder = child_body_builder.add_joint(joint_name=joint_name, joint_property=joint_property)
