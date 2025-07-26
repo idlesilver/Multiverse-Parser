@@ -469,7 +469,6 @@ class UsdImporter(Factory):
             logging.warning(f"Joint {joint_prim.GetPath()} has negative scale, flipping the sign from {joint_scale} to {-joint_scale}.")
             joint_scale = -joint_scale
         joint_scale = numpy.linalg.norm(numpy.array([joint_rotation.TransformDir(Gf.Vec3d(*v)) for v in numpy.eye(3) * joint_scale]), axis=0) # type: ignore
-        child_body_name = self.name_map[child_prim.GetPath()]
         if child_prim.IsA(UsdGeom.Gprim): # type: ignore
             parent_prim = self.parent_map[child_prim]
             child_prim = self.geom_body_map[child_prim]
@@ -482,8 +481,10 @@ class UsdImporter(Factory):
             child_to_joint_pos = Gf.Vec3d(*[joint.GetLocalPos0Attr().Get()[i] * joint_scale[i] for i in range(3)]) # type: ignore
             child_to_joint_pos = parent_prim_rotation.GetInverse().TransformDir(child_to_joint_pos - parent_to_child_translate)
             child_to_joint_pos = numpy.array([*child_to_joint_pos])
+            child_body_name = child_prim.GetName()
         else:
             child_to_joint_pos = numpy.array([0.0, 0.0, 0.0])
+            child_body_name = self.name_map[child_prim.GetPath()]
         joint_name = self.name_map[joint_prim.GetPath()]
         child_body_builder = self.world_builder.get_body_builder(body_name=child_body_name)
         child_prim = child_body_builder.xform.GetPrim()
