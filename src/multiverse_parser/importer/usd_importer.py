@@ -60,6 +60,12 @@ class UsdImporter(Factory):
                      f"inertia_source: {inertia_source}, default_rgba: {default_rgba}, "
                      f"exclude_names: {exclude_names}")
         self._stage = Usd.Stage.Open(file_path)  # type: ignore
+        # Optionally, load all payloads first
+        self.stage.Load()
+        for prim in self.stage.TraverseAll():
+            if prim.IsInstanceable():
+                prim.SetInstanceable(False)
+        self.stage.Flatten()
 
         if root_name is not None:
             self.name_map = {}
