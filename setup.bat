@@ -34,15 +34,16 @@ if not exist "%ZIP_DIR%" (
 
 set "BLENDER_DIR=%EXT_DIR%\blender"
 if not exist "%BLENDER_DIR%" (
-  set "BLENDER=blender-4.4.1-windows-x64"
+  set "BLENDER_VERSION=4.4"
+  set "BLENDER=blender-!BLENDER_VERSION!.1-windows-x64"
   set "BLENDER_ZIP_FILE=!BLENDER!.zip"
-  powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o '%EXT_DIR%\!BLENDER_ZIP_FILE!' https://download.blender.org/release/Blender4.4/!BLENDER_ZIP_FILE!"
+  powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o '%EXT_DIR%\!BLENDER_ZIP_FILE!' https://download.blender.org/release/Blender!BLENDER_VERSION!/!BLENDER_ZIP_FILE!"
   powershell -NoProfile -Command "%ZIP_EXECUTABLE% x '%EXT_DIR%\!BLENDER_ZIP_FILE!' -o'%EXT_DIR%'"
   move "%EXT_DIR%\!BLENDER!" "%EXT_DIR%\blender"
   del "%EXT_DIR%\!BLENDER_ZIP_FILE!"
   
-  %BLENDER_DIR%\4.4\python\bin\python.exe -m pip install --upgrade pip build --no-warn-script-location
-  %BLENDER_DIR%\4.4\python\bin\python.exe -m pip install bpy Pillow --no-warn-script-location
+  %BLENDER_DIR%\!BLENDER_VERSION!\python\bin\python.exe -m pip install --upgrade pip build --no-warn-script-location
+  %BLENDER_DIR%\!BLENDER_VERSION!\python\bin\python.exe -m pip install bpy Pillow --no-warn-script-location
 )
 
 if /i "%USD_ENABLED%"=="true" (

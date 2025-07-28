@@ -26,13 +26,14 @@ EXT_DIR=$PWD/ext
 BLENDER_DIR=$EXT_DIR/blender
 if [ ! -d "$BLENDER_DIR" ]; then
     mkdir -p "$BLENDER_DIR"
-    BLENDER_TAR_FILE=blender-4.4.1-linux-x64.tar.xz
-    curl -L -o "$EXT_DIR"/$BLENDER_TAR_FILE https://download.blender.org/release/Blender4.4/$BLENDER_TAR_FILE
+    BLENDER_VERSION=4.5
+    BLENDER_TAR_FILE=blender-$BLENDER_VERSION.0-linux-x64.tar.xz
+    curl -L -o "$EXT_DIR"/$BLENDER_TAR_FILE https://download.blender.org/release/Blender$BLENDER_VERSION/$BLENDER_TAR_FILE
     tar xf "$EXT_DIR"/$BLENDER_TAR_FILE -C "$BLENDER_DIR" --strip-components=1
     rm -f "$EXT_DIR"/$BLENDER_TAR_FILE
     
     (
-        cd "$BLENDER_DIR"/4.4/python/bin || exit
+        cd "$BLENDER_DIR"/$BLENDER_VERSION/python/bin || exit
         ./python3.11 -m pip install --upgrade pip build --no-warn-script-location
         ./python3.11 -m pip install bpy Pillow --no-warn-script-location
     )
