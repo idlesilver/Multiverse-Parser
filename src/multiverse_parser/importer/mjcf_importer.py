@@ -260,6 +260,7 @@ class MjcfImporter(Factory):
     def _import_joint(self, mj_body, body_builder: BodyBuilder, joint_id: int) -> Optional[JointBuilder]:
         mj_joint = self.mj_model.joint(joint_id)
         if mj_joint.type == mujoco.mjtJoint.mjJNT_FREE:
+            self._import_inertial(mj_body=mj_body, body_builder=body_builder)
             return None
 
         joint_name = mj_joint.name if mj_joint.name is not None else "Joint_" + str(joint_id)
