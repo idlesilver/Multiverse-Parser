@@ -3,6 +3,8 @@
 start_time=$(date +%s)
 
 cd "$(dirname "$0")" || exit
+
+./setup.sh
 tar -czf src/multiverse_parser/external.tar.gz ext/blender USD/linux USD/windows
 python -m build
 

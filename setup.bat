@@ -108,4 +108,4 @@ set "end_time=%TIME%"
 for /f %%a in ('powershell -Command "[int](Get-Date -UFormat %%s)"') do set END_TIME=%%a
 set /a ELAPSED=%END_TIME% - %START_TIME%
 
-echo Build completed in %ELAPSED% seconds
+echo Setup completed in %ELAPSED% seconds

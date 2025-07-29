@@ -33,11 +33,13 @@ git clone https://github.com/Multiverse-Framework/Multiverse-Parser.git --depth 
 Then, run the setup script to automatically download and link [**Blender**](https://www.blender.org/):
 
 **Linux:**
+
 ```bash
 ./Multiverse-Parser/setup.sh
 ```
 
 **Windows:**
+
 ```bat
 .\Multiverse-Parser\setup.bat
 ```
@@ -57,11 +59,13 @@ To upgrade or rebuild USD:
 2. Run the setup script with the `--usd` flag:
 
     **Linux:**
+
     ```bash
     ./Multiverse-Parser/setup.sh --usd
     ```
 
     **Windows:**
+
     ```bat
     .\Multiverse-Parser\setup.bat --usd
     ```

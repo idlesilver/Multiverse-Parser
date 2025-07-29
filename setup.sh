@@ -100,4 +100,4 @@ fi
 end_time=$(date +%s)
 elapsed=$(( end_time - start_time ))
 
-echo "Build completed in $elapsed seconds"
+echo "Setup completed in $elapsed seconds"
