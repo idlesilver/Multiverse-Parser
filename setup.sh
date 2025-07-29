@@ -35,7 +35,7 @@ if [ ! -d "$BLENDER_DIR" ]; then
     (
         cd "$BLENDER_DIR"/$BLENDER_VERSION/python/bin || exit
         ./python3.11 -m pip install --upgrade pip build --no-warn-script-location
-        ./python3.11 -m pip install bpy Pillow --no-warn-script-location
+        ./python3.11 -m pip install bpy Pillow urdf_parser_py rospkg pyyaml --no-warn-script-location
     )
 fi
 

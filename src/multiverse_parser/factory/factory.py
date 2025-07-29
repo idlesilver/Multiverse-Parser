@@ -221,6 +221,7 @@ class Factory:
         if not execute_later:
             cmd = ["blender",
                    "--background",
+                   "--quiet",
                    "--python-expr",
                    f"import bpy"
                    f"{cmd}"]
@@ -278,6 +279,7 @@ class Factory:
         if not execute_later:
             cmd = ["blender",
                    "--background",
+                   "--quiet",
                    "--python-expr",
                    f"import bpy"
                    f"{cmd}"]
@@ -305,7 +307,7 @@ class Factory:
             if logger.isEnabledFor(logging.DEBUG):
                 process = subprocess.Popen(cmd)
             else:
-                process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL)
+                process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             processes.append(process)
             processes_count += 1
             if processes_count >= max_processes_count or i == len(self.cmds) - 1:

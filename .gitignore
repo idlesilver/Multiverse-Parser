@@ -170,3 +170,4 @@ cython_debug/
 ext/
 tests/resources
 tmp/
+src/multiverse_parser/external.tar.gz

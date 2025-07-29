@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+import sys
+import numpy
+
+current_dir = os.path.dirname(__file__)
+src_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.insert(0, src_dir)
+
+from multiverse_parser import configure_logging, logging
+from multiverse_parser import InertiaSource
+from multiverse_parser import UrdfImporter, MjcfImporter, UsdImporter
+from multiverse_parser import UrdfExporter, MjcfExporter
+
+def main():
+    parser = argparse.ArgumentParser(description="Multiverse parser")
+    parser.add_argument(
+        "--input",
+        type=str,
+        required=True,
+        help="Import scene description as (URDF, MJCF, WORLD or USD)",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        required=True,
+        help="Export scene description as (URDF, MJCF, WORLD or USD)",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Verbose flag",
+    )
+    parser.add_argument(
+        "--fixed_base",
+        action='store_true',
+        help="Set the base link as fixed",
+    )
+    parser.set_defaults(fixed_base=False)
+    parser.add_argument(
+        "--root_name",
+        type=str,
+        required=False,
+        help="The name of the root body",
+    )
+    parser.add_argument(
+        "--relative_to_ros_package",
+        type=str,
+        required=False,
+        help="The path to the ROS package that contains the URDF file (only for output URDF)",
+    )
+    parser.set_defaults(relative_to_ros_package=None)
+    parser.add_argument(
+        "--no-physics",
+        dest="physics",
+        action='store_false',
+        help="Exclude the physics properties",
+    )
+    parser.set_defaults(physics=True)
+    parser.add_argument(
+        "--no-visual",
+        dest="visual",
+        action='store_false',
+        help="Exclude the visual meshes",
+    )
+    parser.set_defaults(visual=True)
+    parser.add_argument(
+        "--no-collision",
+        dest="collision",
+        action='store_false',
+        help="Exclude the collision meshes",
+    )
+    parser.set_defaults(collision=True)
+    parser.add_argument(
+        "--keepusd",
+        action='store_true',
+        help="Keep the temporary USD file after exporting",
+    )
+    parser.set_defaults(keepusd=False)
+    parser.add_argument(
+        "--inertiasource",
+        type=str,
+        required=False,
+        help="Where to get the inertia from (from_src, from_visual_mesh or from_collision_mesh)",
+    )
+    parser.set_defaults(inertiasource="from_src")
+    parser.add_argument(
+        "--defaultrgba",
+        nargs="+",
+        type=json.loads,
+        help="The default color of the meshes",
+    )
+    parser.set_defaults(defaultrgba=numpy.array([0.9, 0.9, 0.9, 1.0]))
+
+    args = parser.parse_args()
+
+    level = logging.DEBUG if args.verbose else logging.INFO
+    configure_logging(level=level)
+
+    fixed_base = args.fixed_base
+    root_name = args.root_name
+    with_physics = args.physics
+    with_visual = args.visual
+    with_collision = args.collision
+    keep_usd = args.keepusd
+    default_rgba = numpy.array(args.defaultrgba[0]) if len(args.defaultrgba) == 1 else numpy.array(args.defaultrgba)
+
+    in_extension = os.path.splitext(args.input)[1]
+    out_extension = os.path.splitext(args.output)[1]
+
+    if args.inertiasource == "from_visual_mesh":
+        inertia_source = InertiaSource.FROM_VISUAL_MESH
+    elif args.inertiasource == "from_collision_mesh":
+        inertia_source = InertiaSource.FROM_COLLISION_MESH
+    elif args.inertiasource == "from_src":
+        inertia_source = InertiaSource.FROM_SRC
+    else:
+        raise NotImplementedError(f"Inertia source {args.inertiasource} is not supported yet.")
+
+    input_path = args.input
+    if not os.path.isabs(input_path):
+        input_path = os.path.join(os.getcwd(), input_path)
+    output_path = args.output
+    if not os.path.isabs(output_path):
+        output_path = os.path.join(os.getcwd(), output_path)
+    logging.info(f"Input path: {input_path}")
+    logging.info(f"Output path: {output_path}")
+
+    if in_extension in [".usd", ".usda", ".usdc"]:
+        factory = UsdImporter(file_path=input_path,
+                              fixed_base=fixed_base,
+                              root_name=root_name,
+                              with_physics=with_physics,
+                              with_visual=with_visual,
+                              with_collision=with_collision,
+                              inertia_source=inertia_source,
+                              default_rgba=default_rgba)
+    elif in_extension == ".urdf":
+        factory = UrdfImporter(file_path=input_path,
+                               fixed_base=fixed_base,
+                               root_name=root_name,
+                               with_physics=with_physics,
+                               with_visual=with_visual,
+                               with_collision=with_collision,
+                               inertia_source=inertia_source,
+                               default_rgba=default_rgba)
+    elif in_extension == ".xml":
+        if root_name is None:
+            root_name = "world"
+        factory = MjcfImporter(file_path=input_path,
+                               fixed_base=fixed_base,
+                               root_name=root_name,
+                               with_physics=with_physics,
+                               with_visual=with_visual,
+                               with_collision=with_collision,
+                               inertia_source=inertia_source,
+                               default_rgba=default_rgba)
+    else:
+        raise NotImplementedError(f"Importing from {in_extension} is not supported yet.")
+
+    factory.import_model()
+
+    if out_extension in [".usd", ".usda", ".usdc"]:
+        output_usd_path = os.path.join(os.path.dirname(output_path), os.path.splitext(output_path)[0] + ".usda")
+        factory.save_tmp_model(usd_file_path=str(output_usd_path))
+    elif out_extension == ".xml":
+        exporter = MjcfExporter(file_path=output_path,
+                                factory=factory)
+        exporter.build()
+        exporter.export(keep_usd=keep_usd)
+    elif out_extension == ".urdf":
+        exporter = UrdfExporter(file_path=output_path,
+                                factory=factory,
+                                relative_to_ros_package=args.relative_to_ros_package)
+        exporter.build()
+        exporter.export(keep_usd=keep_usd)
+    else:
+        raise NotImplementedError(f"Exporting to {out_extension} is not supported yet.")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "multiverse_parser"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   { name="Giang Nguyen", email="hoanggia@uni-bremen.de" },
 ]
@@ -22,6 +26,17 @@ dependencies = [
     "mujoco",
 ]
 
+scripts = { multiverse_parser = "multiverse_parser.__main__:main" }
+
 [project.urls]
 "Homepage" = "https://github.com/Multiverse-Framework/Multiverse"
 "Bug Tracker" = "https://github.com/Multiverse-Framework/Multiverse-Parser/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"multiverse_parser" = ["external.tar.gz"]
