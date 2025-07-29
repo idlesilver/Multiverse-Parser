@@ -15,6 +15,7 @@ if not exist "%EXT_DIR%" (
   mkdir "!USD_DIR!"
   xcopy /e /i /y USD\windows "!USD_DIR!\windows"
 )
+@REM python -m build
 
 set "end_time=%TIME%"
 

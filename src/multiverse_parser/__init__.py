@@ -48,7 +48,7 @@ blender_dir = os.path.abspath(os.path.join(external_parent_dir, 'ext', 'blender'
 if not os.path.exists(os.path.join(blender_dir, 'blender')):
     blender_dir = os.path.join(os.path.abspath(os.path.join(external_parent_dir, 'blender')), f"linux" if os.name != 'nt' else "windows")
     assert os.path.exists(blender_dir), f"Blender directory {blender_dir} does not exist."
-os.environ["PATH"] = os.path.abspath(os.path.join(external_parent_dir, 'ext', 'blender'))
+os.environ["PATH"] = blender_dir
 if os.name == 'nt':
     usd_dir = os.path.abspath(os.path.join(external_parent_dir, 'USD', 'windows', 'lib', 'python'))
     os.environ["PATH"] += f";{os.path.abspath(os.path.join(external_parent_dir, 'USD', 'windows', 'bin'))}"
