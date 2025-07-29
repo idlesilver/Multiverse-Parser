@@ -34,7 +34,7 @@ if not exist "%ZIP_DIR%" (
 
 set "BLENDER_DIR=%EXT_DIR%\blender"
 if not exist "%BLENDER_DIR%" (
-  set "BLENDER_VERSION=4.4"
+  set "BLENDER_VERSION=4.5"
   set "BLENDER=blender-!BLENDER_VERSION!.1-windows-x64"
   set "BLENDER_ZIP_FILE=!BLENDER!.zip"
   powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o '%EXT_DIR%\!BLENDER_ZIP_FILE!' https://download.blender.org/release/Blender!BLENDER_VERSION!/!BLENDER_ZIP_FILE!"
