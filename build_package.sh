@@ -4,8 +4,15 @@ start_time=$(date +%s)
 
 cd "$(dirname "$0")" || exit
 
-./setup.sh
-tar -czf src/multiverse_parser/external.tar.gz ext/blender USD/linux USD/windows
+if [ ! -d "src/multiverse_parser/external" ]; then
+    BLENDER_DIR=$PWD/src/multiverse_parser/external/blender/linux
+    mkdir -p "$BLENDER_DIR"
+    cp -r ext/blender/* "$BLENDER_DIR"/
+
+    USD_DIR=$PWD/src/multiverse_parser/external/USD
+    mkdir -p "$USD_DIR"
+    cp -r USD/linux "$USD_DIR"/linux
+fi
 python -m build
 
 end_time=$(date +%s)
