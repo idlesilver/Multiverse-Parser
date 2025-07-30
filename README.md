@@ -154,3 +154,18 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+## 🐍 Building the PyPI Package
+
+To build the package:
+
+* On **Linux**, run: `build_package.sh`
+* On **Windows**, run: `build_packages.bat`
+
+Then execute:
+
+```bash
+python -m build
+```
+
+This will generate the distribution files in the `dist/` directory.
