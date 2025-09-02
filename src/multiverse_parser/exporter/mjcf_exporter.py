@@ -138,7 +138,8 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder, merge_texture: bool) -> UsdMu
             else:
                 xform = UsdGeom.Xform(gprim_prim)  # type: ignore
                 transformation = xform.GetLocalTransformation()
-                geom_size = numpy.array([round(transformation.GetRow(i).GetLength(), 3) for i in range(3)])
+                # Keep full precision for actual geom_size
+                geom_size = numpy.array([transformation.GetRow(i).GetLength() for i in range(3)])
                 geom_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
                 det_geom_size = numpy.linalg.det(geom_size_mat)
                 if det_geom_size < 0:
@@ -165,7 +166,8 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder, merge_texture: bool) -> UsdMu
             else:
                 xform = UsdGeom.Xform(gprim_prim)  # type: ignore
                 transformation = xform.GetLocalTransformation()
-                geom_size = numpy.array([round(transformation.GetRow(i).GetLength(), 3) for i in range(3)])
+                # Keep full precision for actual geom_size, only round for mesh naming
+                geom_size = numpy.array([transformation.GetRow(i).GetLength() for i in range(3)])
                 geom_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
                 det_geom_size = numpy.linalg.det(geom_size_mat)
                 if det_geom_size < 0:
@@ -189,7 +191,8 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder, merge_texture: bool) -> UsdMu
             stage = gprim_prim.GetStage()
             mesh_file_path = prepended_items[0].assetPath
             mesh_name = os.path.splitext(os.path.basename(mesh_file_path))[0]
-            mesh_name = add_scale_to_mesh_name(mesh_name=mesh_name, mesh_scale=geom_size)
+            # Use rounded scale only for mesh naming, keep original precision for mujoco
+            mesh_name = add_scale_to_mesh_name(mesh_name=mesh_name, mesh_scale=numpy.round(geom_size, 3))
 
             mujoco_asset_prim = stage.GetPrimAtPath("/mujoco/asset")
             mujoco_meshes_prim = stage.GetPrimAtPath("/mujoco/asset/meshes")
@@ -504,7 +507,8 @@ class MjcfExporter:
                     else:
                         xform = UsdGeom.Xform(prim)  # type: ignore
                         transformation = xform.GetLocalTransformation()
-                        mesh_scale = tuple(round(transformation.GetRow(i).GetLength(), 3) for i in range(3))
+                        # Keep full precision for actual mesh scale, only round for naming
+                        mesh_scale = tuple(transformation.GetRow(i).GetLength() for i in range(3))
                         mesh_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
                         det_geom_size = numpy.linalg.det(mesh_size_mat)
                         if det_geom_size < 0:
@@ -613,7 +617,7 @@ class MjcfExporter:
                                              execute_later=True)
 
                 mesh_file_name_scaled = add_scale_to_mesh_name(mesh_name=mesh_file_name,
-                                                               mesh_scale=numpy.array(mesh_file_property.scale))
+                                                               mesh_scale=numpy.round(numpy.array(mesh_file_property.scale), 3))
 
                 mujoco_mesh_path = self.mujoco_meshes_prim.GetPath().AppendChild(mesh_file_name_scaled)
                 if stage.GetPrimAtPath(mujoco_mesh_path).IsValid():
