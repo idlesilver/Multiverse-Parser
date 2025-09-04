@@ -175,7 +175,7 @@ class UsdImporter(Factory):
             for body_builder, prim in self.body_builders_with_inertial.items():
                 if self._config.inertia_source == InertiaSource.FROM_SRC:
                     body_prim_api = UsdPhysics.MassAPI(prim)  # type: ignore
-                    body_mass = body_prim_api.GetMassAttr().Get()
+                    body_mass = body_prim_api.GetMassAttr().Get() # FIXME: if it is none, calculated from density
                     body_center_of_mass = body_prim_api.GetCenterOfMassAttr().Get()
                     body_center_of_mass = numpy.array([*body_center_of_mass]) \
                         if body_center_of_mass is not None else numpy.zeros(3)
@@ -203,6 +203,9 @@ class UsdImporter(Factory):
             imported_body_names = [body_builder.xform.GetPrim().GetName() for body_builder in
                                    self.world_builder.body_builders]
             body_name = self.name_map[body_prim.GetPath()]
+            # NOTE: change assertion to return immediately if body already imported
+            if body_name in imported_body_names:
+                return
             assert body_name not in imported_body_names, f"Body {body_name} already imported."
             parent_prim = self.parent_map.get(body_prim, body_prim.GetParent())
             if parent_prim.GetPath() not in self.name_map:
@@ -298,7 +301,7 @@ class UsdImporter(Factory):
                 geom_rgba[:3] = gprim_rgb[0][:3]
             if gprim_opacity is not None:
                 geom_rgba[3] = gprim_opacity[0]
-            geom_density = 1000.0
+            geom_density = 1000.0 # FIXME: use actual density from USD file
             geom_property = GeomProperty(geom_type=geom_type,
                                          is_visible=geom_is_visible,
                                          is_collidable=geom_is_collidable,

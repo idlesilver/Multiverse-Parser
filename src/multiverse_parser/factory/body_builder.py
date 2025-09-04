@@ -30,6 +30,9 @@ class BodyBuilder:
     point_builders: List[PointsBuilder]
     child_body_builders: List[BodyBuilder]
 
+    def __repr__(self):
+        return f"BodyBuilder(name={self.xform.GetPrim().GetName()}, child_num={len(self.child_body_builders)})"
+
     def __init__(self,
                  stage: Usd.Stage, name: str,
                  parent_xform: Optional[UsdGeom.Xform] = None) -> None:

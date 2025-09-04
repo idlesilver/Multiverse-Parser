@@ -166,7 +166,6 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder, merge_texture: bool) -> UsdMu
             else:
                 xform = UsdGeom.Xform(gprim_prim)  # type: ignore
                 transformation = xform.GetLocalTransformation()
-                # Keep full precision for actual geom_size, only round for mesh naming
                 geom_size = numpy.array([transformation.GetRow(i).GetLength() for i in range(3)])
                 geom_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
                 det_geom_size = numpy.linalg.det(geom_size_mat)
@@ -191,8 +190,7 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder, merge_texture: bool) -> UsdMu
             stage = gprim_prim.GetStage()
             mesh_file_path = prepended_items[0].assetPath
             mesh_name = os.path.splitext(os.path.basename(mesh_file_path))[0]
-            # Use rounded scale only for mesh naming, keep original precision for mujoco
-            mesh_name = add_scale_to_mesh_name(mesh_name=mesh_name, mesh_scale=numpy.round(geom_size, 3))
+            mesh_name = normalize_mesh_name(mesh_name)
 
             mujoco_asset_prim = stage.GetPrimAtPath("/mujoco/asset")
             mujoco_meshes_prim = stage.GetPrimAtPath("/mujoco/asset/meshes")
@@ -257,11 +255,12 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder, merge_texture: bool) -> UsdMu
     return mujoco_geom_api
 
 
-def add_scale_to_mesh_name(mesh_name: str, mesh_scale: numpy.ndarray) -> str:
-    if not numpy.isclose(mesh_scale, numpy.array([1.0, 1.0, 1.0])).all():
-        mesh_name += "_" + "_".join(map(str, mesh_scale))
-    mesh_name = modify_name(mesh_name, "Mesh_")
-    return mesh_name
+def normalize_mesh_name(mesh_name: str) -> str:
+    return modify_name(mesh_name, "Mesh_")
+
+
+def should_scale_mesh_file(scale_array: numpy.ndarray, tolerance: float = 0.01) -> bool:
+    return not numpy.all(numpy.abs(scale_array - 1.0) < tolerance)
 
 
 @dataclass(frozen=True, eq=True)
@@ -507,7 +506,6 @@ class MjcfExporter:
                     else:
                         xform = UsdGeom.Xform(prim)  # type: ignore
                         transformation = xform.GetLocalTransformation()
-                        # Keep full precision for actual mesh scale, only round for naming
                         mesh_scale = tuple(transformation.GetRow(i).GetLength() for i in range(3))
                         mesh_size_mat = numpy.array([[transformation.GetRow(i)[j] for i in range(3)] for j in range(3)])
                         det_geom_size = numpy.linalg.det(mesh_size_mat)
@@ -611,20 +609,25 @@ class MjcfExporter:
                 tmp_mesh_file_path = os.path.join(self.factory.tmp_mesh_dir_path,
                                                   mesh_file_ext,
                                                   f"{mesh_file_name}.{mesh_file_ext}")
+                
+                scale_array = numpy.array(mesh_file_property.scale)
+                final_mjcf_scale = numpy.array([1.0, 1.0, 1.0])
+                
                 if not os.path.exists(tmp_mesh_file_path):
+                    mesh_scale = scale_array if should_scale_mesh_file(scale_array) else numpy.array([1.0, 1.0, 1.0])
                     self.factory.export_mesh(in_mesh_file_path=mesh_file_path,
                                              out_mesh_file_path=tmp_mesh_file_path,
-                                             execute_later=True)
+                                             execute_later=True,
+                                             mesh_scale=mesh_scale)
 
-                mesh_file_name_scaled = add_scale_to_mesh_name(mesh_name=mesh_file_name,
-                                                               mesh_scale=numpy.round(numpy.array(mesh_file_property.scale), 3))
+                mesh_file_name_normalized = normalize_mesh_name(mesh_file_name)
 
-                mujoco_mesh_path = self.mujoco_meshes_prim.GetPath().AppendChild(mesh_file_name_scaled)
+                mujoco_mesh_path = self.mujoco_meshes_prim.GetPath().AppendChild(mesh_file_name_normalized)
                 if stage.GetPrimAtPath(mujoco_mesh_path).IsValid():
                     continue
                 mujoco_mesh = UsdMujoco.MujocoMesh.Define(stage, mujoco_mesh_path)  # type: ignore
                 mujoco_mesh.CreateFileAttr(f"./{tmp_mesh_file_path}")
-                mujoco_mesh.CreateScaleAttr(Gf.Vec3f(*mesh_file_property.scale))  # type: ignore
+                mujoco_mesh.CreateScaleAttr(Gf.Vec3f(*final_mjcf_scale))  # type: ignore
 
         self.factory.execute_cmds()
 
@@ -750,10 +753,8 @@ class MjcfExporter:
         assert geom_is_collidable or geom_is_visible, \
             f"Geom {geom_name} is neither collidable nor visible. Please check the USD prim {gprim_prim.GetPath()}."
 
-        if geom_is_collidable and geom_is_visible:
-            geom.set("class", f"{self.factory.config.model_name}")
-        else:
-            geom.set("class", f"{self.factory.config.model_name}_{'visual' if geom_is_visible else 'collision'}")
+        # All geoms are treated as visual; collision handling will be done by external scripts
+        geom.set("class", f"{self.factory.config.model_name}_visual")
 
     def _build_composite(self, points_builder: PointsBuilder, body: ET.Element) -> None:
         mujoco_composite_api = get_mujoco_composite_api(points_builder=points_builder)

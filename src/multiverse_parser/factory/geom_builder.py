@@ -82,6 +82,9 @@ class GeomBuilder:
     stage: Usd.Stage
     gprim: UsdGeom.Gprim
 
+    def __repr__(self):
+        return f"GeomBuilder(name={self.gprim.GetPrim().GetName()})"
+
     def __init__(self,
                  stage: Usd.Stage,
                  geom_name: str,
