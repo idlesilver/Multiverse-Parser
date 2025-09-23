@@ -1,5 +1,6 @@
 #!/usr/bin/env python3.10
 
+import math
 import os
 from typing import List, Optional, Dict
 
@@ -227,8 +228,14 @@ class UsdImporter(Factory):
             body_builder.xform.AddTransformOp().Set(parent_to_body_transformation)
 
     def _import_geom(self, gprim_prim: Usd.Prim) -> None:  # type: ignore
-        if not gprim_prim.IsA(UsdGeom.Mesh): # type: ignore
-            logging.warning(f"Prim {gprim_prim.GetPath()} is not a mesh.")
+        is_mesh = gprim_prim.IsA(UsdGeom.Mesh)  # type: ignore
+        is_supported_primitive = any((
+            gprim_prim.IsA(UsdGeom.Cube),
+            gprim_prim.IsA(UsdGeom.Sphere),
+            gprim_prim.IsA(UsdGeom.Cylinder),
+        ))  # type: ignore
+        if not is_mesh and not is_supported_primitive:
+            logging.warning(f"Prim {gprim_prim.GetPath()} is not a supported geometry type.")
             return
 
         gprim = UsdGeom.Gprim(gprim_prim)  # type: ignore
@@ -283,16 +290,10 @@ class UsdImporter(Factory):
 
         if geom_name not in body_builder._geom_builders:
             logging.info(f"Importing geometry: {gprim_prim.GetPath()} as {geom_name}...")
-            if gprim_prim.IsA(UsdGeom.Cube): # type: ignore
-                geom_type = GeomType.CUBE
-            elif gprim_prim.IsA(UsdGeom.Sphere): # type: ignore
-                geom_type = GeomType.SPHERE
-            elif gprim_prim.IsA(UsdGeom.Cylinder): # type: ignore
-                geom_type = GeomType.CYLINDER
-            elif gprim_prim.IsA(UsdGeom.Mesh): # type: ignore
-                geom_type = GeomType.MESH
-            else:
+            if not (is_mesh or is_supported_primitive):
                 raise NotImplementedError(f"Geometry type {gprim_prim.GetTypeName()} is not supported yet.")
+
+            geom_type = GeomType.MESH
 
             geom_rgba = self.config.default_rgba.tolist()
             gprim_rgb = gprim.GetDisplayColorAttr().Get()
@@ -309,7 +310,13 @@ class UsdImporter(Factory):
                                          density=geom_density)
             geom_builder = body_builder.add_geom(geom_name=geom_name,
                                                  geom_property=geom_property)
-            geom_builder.build(approximation_method=UsdPhysics.MeshCollisionAPI(gprim_prim).GetApproximationAttr().Get()) # type: ignore
+            approximation_method = UsdGeom.Tokens.none
+            if gprim_prim.HasAPI(UsdPhysics.MeshCollisionAPI):  # type: ignore
+                mesh_collision_api = UsdPhysics.MeshCollisionAPI(gprim_prim)  # type: ignore
+                approximation_value = mesh_collision_api.GetApproximationAttr().Get()
+                if approximation_value is not None:
+                    approximation_method = approximation_value
+            geom_builder.build(approximation_method=approximation_method)
             geom_transform = xform_cache.GetLocalToWorldTransform(gprim_prim)
             geom_scale = numpy.array([geom_transform.GetRow(i).GetLength() for i in range(3)])
             if geom_transform.GetDeterminant3() < 0:
@@ -330,10 +337,26 @@ class UsdImporter(Factory):
         else:
             geom_builder = body_builder.get_geom_builder(geom_name=geom_name)
 
-        mesh_file_path, mesh_src_path = get_usd_mesh_file_path(gprim_prim=gprim_prim)
         mesh_name = f"SM_{self.name_map[gprim_prim.GetPath()]}"
+        if is_mesh:
+            mesh_property = self._get_mesh_property_from_mesh(gprim_prim, mesh_name)
+        else:
+            mesh_property = self._meshify_primitive(gprim_prim, mesh_name)
+
+        if mesh_property.points.size == 0 or mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
+            # TODO: Fix empty mesh
+            logging.warning(f"Mesh {gprim_prim.GetName()} has no points or face vertex counts, skipping import.")
+            return
+        geom_builder.add_mesh(mesh_name=mesh_name,
+                              mesh_property=mesh_property)
+
+        if geom_is_visible:
+            self._import_material(geom_builder=geom_builder, gprim_prim=gprim_prim)
+
+    def _get_mesh_property_from_mesh(self, gprim_prim: Usd.Prim, mesh_name: str) -> MeshProperty:  # type: ignore
+        mesh_file_path, mesh_src_path = get_usd_mesh_file_path(gprim_prim=gprim_prim)
         logging.info(f"Importing mesh: {mesh_src_path} from {mesh_file_path} as {mesh_name}...")
-        mesh = UsdGeom.Mesh(gprim_prim) # type: ignore
+        mesh = UsdGeom.Mesh(gprim_prim)  # type: ignore
         points = mesh.GetPointsAttr().Get()
         assert points is not None, "Mesh points cannot be None"
         normals = mesh.GetNormalsAttr().Get()
@@ -346,7 +369,7 @@ class UsdImporter(Factory):
         face_vertex_indices = mesh.GetFaceVertexIndicesAttr().Get()
         assert face_vertex_indices is not None, "Mesh face vertex indices cannot be None"
 
-        for primvar in UsdGeom.PrimvarsAPI(gprim_prim).GetPrimvars(): # type: ignore
+        for primvar in UsdGeom.PrimvarsAPI(gprim_prim).GetPrimvars():  # type: ignore
             if primvar.GetBaseName() == "st" and primvar.GetTypeName().cppTypeName == "VtArray<GfVec2f>":
                 texture_coordinates = numpy.array(primvar.Get(), dtype=numpy.float32)
                 texture_coordinate_indices = primvar.GetIndicesAttr().Get()
@@ -354,6 +377,7 @@ class UsdImporter(Factory):
         else:
             texture_coordinates = None
             texture_coordinate_indices = None
+
         mesh_property = MeshProperty(points=numpy.array(points),
                                      normals=numpy.array(normals),
                                      face_vertex_counts=numpy.array(face_vertex_counts),
@@ -361,15 +385,206 @@ class UsdImporter(Factory):
                                      texture_coordinates=texture_coordinates,
                                      texture_coordinate_indices=texture_coordinate_indices)
         mesh_property.mesh_file_name = mesh_name
-        if mesh_property.points.size == 0 or mesh_property.face_vertex_counts.size == 0 or mesh_property.face_vertex_indices.size == 0:
-            # TODO: Fix empty mesh
-            logging.warning(f"Mesh {gprim_prim.GetName()} has no points or face vertex counts, skipping import.")
-            return
-        geom_builder.add_mesh(mesh_name=mesh_name,
-                              mesh_property=mesh_property)
+        return mesh_property
 
-        if geom_is_visible:
-            self._import_material(geom_builder=geom_builder, gprim_prim=gprim_prim)
+    def _meshify_primitive(self, gprim_prim: Usd.Prim, mesh_name: str) -> MeshProperty:  # type: ignore
+        logging.info(f"Converting primitive {gprim_prim.GetPath()} to mesh {mesh_name}...")
+        if gprim_prim.IsA(UsdGeom.Cube):  # type: ignore
+            points, face_vertex_counts, face_vertex_indices, normals = self._cube_to_mesh(UsdGeom.Cube(gprim_prim))  # type: ignore
+        elif gprim_prim.IsA(UsdGeom.Sphere):  # type: ignore
+            points, face_vertex_counts, face_vertex_indices, normals = self._sphere_to_mesh(UsdGeom.Sphere(gprim_prim))  # type: ignore
+        elif gprim_prim.IsA(UsdGeom.Cylinder):  # type: ignore
+            points, face_vertex_counts, face_vertex_indices, normals = self._cylinder_to_mesh(UsdGeom.Cylinder(gprim_prim))  # type: ignore
+        else:
+            raise NotImplementedError(f"Primitive type {gprim_prim.GetTypeName()} is not supported for mesh conversion.")
+
+        mesh_property = MeshProperty(points=points,
+                                     normals=normals,
+                                     face_vertex_counts=face_vertex_counts,
+                                     face_vertex_indices=face_vertex_indices)
+        mesh_property.mesh_file_name = mesh_name
+        return mesh_property
+
+    @staticmethod
+    def _normalize(vector: numpy.ndarray) -> numpy.ndarray:
+        norm = numpy.linalg.norm(vector)
+        if norm == 0.0:
+            return numpy.array([0.0, 0.0, 0.0], dtype=numpy.float32)
+        return (vector / norm).astype(numpy.float32)
+
+    def _cube_to_mesh(self, cube: UsdGeom.Cube) -> (numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray):  # type: ignore
+        size = cube.GetSizeAttr().Get()
+        if size is None:
+            size = 2.0
+        half = float(size) / 2.0
+        points = numpy.array([
+            (-half, -half, -half),
+            (half, -half, -half),
+            (half, half, -half),
+            (-half, half, -half),
+            (-half, -half, half),
+            (half, -half, half),
+            (half, half, half),
+            (-half, half, half),
+        ], dtype=numpy.float32)
+
+        triangles = [
+            (0, 1, 2), (0, 2, 3),  # Bottom
+            (4, 6, 5), (4, 7, 6),  # Top
+            (0, 4, 5), (0, 5, 1),  # Front
+            (1, 5, 6), (1, 6, 2),  # Right
+            (2, 6, 7), (2, 7, 3),  # Back
+            (3, 7, 4), (3, 4, 0),  # Left
+        ]
+
+        normals = []
+        for tri in triangles:
+            v0, v1, v2 = (points[idx] for idx in tri)
+            normal = self._normalize(numpy.cross(v1 - v0, v2 - v0))
+            normals.extend([normal, normal, normal])
+
+        face_vertex_counts = numpy.full(len(triangles), 3, dtype=numpy.int32)
+        face_vertex_indices = numpy.array([idx for tri in triangles for idx in tri], dtype=numpy.int32)
+        normals_array = numpy.array(normals, dtype=numpy.float32)
+        return points, face_vertex_counts, face_vertex_indices, normals_array
+
+    def _sphere_to_mesh(self, sphere: UsdGeom.Sphere, lat_segments: int = 16, lon_segments: int = 32) -> (numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray):  # type: ignore
+        radius = sphere.GetRadiusAttr().Get()
+        if radius is None:
+            radius = 1.0
+        radius = float(radius)
+        lat_segments = max(3, lat_segments)
+        lon_segments = max(3, lon_segments)
+
+        points = [(0.0, radius, 0.0)]
+        for lat in range(1, lat_segments):
+            theta = math.pi * lat / lat_segments
+            sin_theta = math.sin(theta)
+            cos_theta = math.cos(theta)
+            for lon in range(lon_segments):
+                phi = 2.0 * math.pi * lon / lon_segments
+                x = radius * sin_theta * math.cos(phi)
+                y = radius * cos_theta
+                z = radius * sin_theta * math.sin(phi)
+                points.append((x, y, z))
+        points.append((0.0, -radius, 0.0))
+
+        top_index = 0
+        bottom_index = len(points) - 1
+        triangles = []
+
+        # Top cap
+        for lon in range(lon_segments):
+            current = 1 + lon
+            next_index = 1 + (lon + 1) % lon_segments
+            triangles.append((top_index, next_index, current))
+
+        rings = lat_segments - 1
+        for ring in range(rings - 1):
+            for lon in range(lon_segments):
+                current = 1 + ring * lon_segments + lon
+                next_index = 1 + ring * lon_segments + (lon + 1) % lon_segments
+                below = current + lon_segments
+                below_next = next_index + lon_segments
+                triangles.append((current, below, next_index))
+                triangles.append((next_index, below, below_next))
+
+        # Bottom cap
+        if rings > 0:
+            ring_offset = 1 + (rings - 1) * lon_segments
+            for lon in range(lon_segments):
+                current = ring_offset + lon
+                next_index = ring_offset + (lon + 1) % lon_segments
+                triangles.append((current, next_index, bottom_index))
+
+        points_array = numpy.array(points, dtype=numpy.float32)
+
+        oriented_triangles = []
+        for tri in triangles:
+            v0, v1, v2 = (points_array[idx] for idx in tri)
+            normal = numpy.cross(v1 - v0, v2 - v0)
+            centroid = (v0 + v1 + v2) / 3.0
+            if numpy.dot(normal, centroid) < 0:
+                oriented_triangles.append((tri[0], tri[2], tri[1]))
+            else:
+                oriented_triangles.append(tri)
+
+        normals = []
+        for v0, v1, v2 in oriented_triangles:
+            normals.extend([
+                self._normalize(points_array[v0]),
+                self._normalize(points_array[v1]),
+                self._normalize(points_array[v2])
+            ])
+
+        face_vertex_counts = numpy.full(len(oriented_triangles), 3, dtype=numpy.int32)
+        face_vertex_indices = numpy.array([idx for tri in oriented_triangles for idx in tri], dtype=numpy.int32)
+        normals_array = numpy.array(normals, dtype=numpy.float32)
+        return points_array, face_vertex_counts, face_vertex_indices, normals_array
+
+    def _cylinder_to_mesh(self, cylinder: UsdGeom.Cylinder, sides: int = 32) -> (numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray):  # type: ignore
+        radius = cylinder.GetRadiusAttr().Get()
+        height = cylinder.GetHeightAttr().Get()
+        if radius is None:
+            radius = 1.0
+        if height is None:
+            height = 2.0
+        radius = float(radius)
+        height = float(height)
+        sides = max(3, sides)
+
+        half_height = height / 2.0
+        points = []
+        for top in (half_height, -half_height):
+            for side in range(sides):
+                angle = 2.0 * math.pi * side / sides
+                x = radius * math.cos(angle)
+                z = radius * math.sin(angle)
+                points.append((x, top, z))
+        top_center_index = len(points)
+        points.append((0.0, half_height, 0.0))
+        bottom_center_index = len(points)
+        points.append((0.0, -half_height, 0.0))
+
+        triangles = []
+        for side in range(sides):
+            next_side = (side + 1) % sides
+            top_current = side
+            top_next = next_side
+            bottom_current = side + sides
+            bottom_next = next_side + sides
+
+            # Side quad split into two triangles
+            triangles.append((top_current, bottom_current, bottom_next))
+            triangles.append((top_current, bottom_next, top_next))
+
+            # Top cap
+            triangles.append((top_center_index, top_next, top_current))
+            # Bottom cap
+            triangles.append((bottom_center_index, bottom_current, bottom_next))
+
+        points_array = numpy.array(points, dtype=numpy.float32)
+        face_vertex_counts = numpy.full(len(triangles), 3, dtype=numpy.int32)
+        face_vertex_indices = numpy.array([idx for tri in triangles for idx in tri], dtype=numpy.int32)
+
+        normals = []
+        for tri_idx, (v0_idx, v1_idx, v2_idx) in enumerate(triangles):
+            v0 = points_array[v0_idx]
+            v1 = points_array[v1_idx]
+            v2 = points_array[v2_idx]
+            if tri_idx % 4 in (0, 1):
+                # Side faces
+                for vertex_idx in (v0_idx, v1_idx, v2_idx):
+                    vertex = points_array[vertex_idx]
+                    radial = numpy.array([vertex[0], 0.0, vertex[2]], dtype=numpy.float32)
+                    normals.append(self._normalize(radial))
+            elif tri_idx % 4 == 2:
+                normals.extend([numpy.array([0.0, 1.0, 0.0], dtype=numpy.float32)] * 3)
+            else:
+                normals.extend([numpy.array([0.0, -1.0, 0.0], dtype=numpy.float32)] * 3)
+
+        normals_array = numpy.array(normals, dtype=numpy.float32)
+        return points_array, face_vertex_counts, face_vertex_indices, normals_array
 
     def _import_material(self, geom_builder: GeomBuilder, gprim_prim: Usd.Prim) -> None:  # type: ignore
         material_id = 0
