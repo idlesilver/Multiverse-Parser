@@ -412,6 +412,20 @@ class UsdImporter(Factory):
             return numpy.array([0.0, 0.0, 0.0], dtype=numpy.float32)
         return (vector / norm).astype(numpy.float32)
 
+    @staticmethod
+    def _orient_triangles(points: numpy.ndarray,
+                          triangles: List[tuple]) -> List[tuple]:
+        oriented = []
+        for tri in triangles:
+            v0, v1, v2 = (points[idx] for idx in tri)
+            normal = numpy.cross(v1 - v0, v2 - v0)
+            centroid = (v0 + v1 + v2) / 3.0
+            if numpy.dot(normal, centroid) < 0:
+                oriented.append((tri[0], tri[2], tri[1]))
+            else:
+                oriented.append(tri)
+        return oriented
+
     def _cube_to_mesh(self, cube: UsdGeom.Cube) -> (numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray):  # type: ignore
         size = cube.GetSizeAttr().Get()
         if size is None:
@@ -429,13 +443,15 @@ class UsdImporter(Factory):
         ], dtype=numpy.float32)
 
         triangles = [
-            (0, 1, 2), (0, 2, 3),  # Bottom
-            (4, 6, 5), (4, 7, 6),  # Top
-            (0, 4, 5), (0, 5, 1),  # Front
-            (1, 5, 6), (1, 6, 2),  # Right
-            (2, 6, 7), (2, 7, 3),  # Back
-            (3, 7, 4), (3, 4, 0),  # Left
+            (0, 2, 1), (0, 3, 2),  # Bottom
+            (4, 5, 6), (4, 6, 7),  # Top
+            (0, 5, 4), (0, 1, 5),  # Front
+            (1, 6, 5), (1, 2, 6),  # Right
+            (2, 7, 6), (2, 3, 7),  # Back
+            (3, 4, 7), (3, 0, 4),  # Left
         ]
+
+        triangles = self._orient_triangles(points, triangles)
 
         normals = []
         for tri in triangles:
@@ -498,16 +514,7 @@ class UsdImporter(Factory):
                 triangles.append((current, next_index, bottom_index))
 
         points_array = numpy.array(points, dtype=numpy.float32)
-
-        oriented_triangles = []
-        for tri in triangles:
-            v0, v1, v2 = (points_array[idx] for idx in tri)
-            normal = numpy.cross(v1 - v0, v2 - v0)
-            centroid = (v0 + v1 + v2) / 3.0
-            if numpy.dot(normal, centroid) < 0:
-                oriented_triangles.append((tri[0], tri[2], tri[1]))
-            else:
-                oriented_triangles.append(tri)
+        oriented_triangles = self._orient_triangles(points_array, triangles)
 
         normals = []
         for v0, v1, v2 in oriented_triangles:
@@ -525,28 +532,32 @@ class UsdImporter(Factory):
     def _cylinder_to_mesh(self, cylinder: UsdGeom.Cylinder, sides: int = 32) -> (numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray):  # type: ignore
         radius = cylinder.GetRadiusAttr().Get()
         height = cylinder.GetHeightAttr().Get()
+        axis_token = cylinder.GetAxisAttr().Get()
         if radius is None:
             radius = 1.0
         if height is None:
             height = 2.0
+        if axis_token is None:
+            axis_token = UsdGeom.Tokens.y
+
         radius = float(radius)
         height = float(height)
         sides = max(3, sides)
 
         half_height = height / 2.0
-        points = []
-        for top in (half_height, -half_height):
+        base_points = []
+        for z in (half_height, -half_height):
             for side in range(sides):
                 angle = 2.0 * math.pi * side / sides
                 x = radius * math.cos(angle)
-                z = radius * math.sin(angle)
-                points.append((x, top, z))
-        top_center_index = len(points)
-        points.append((0.0, half_height, 0.0))
-        bottom_center_index = len(points)
-        points.append((0.0, -half_height, 0.0))
+                y = radius * math.sin(angle)
+                base_points.append((x, y, z))
+        top_center_index = len(base_points)
+        base_points.append((0.0, 0.0, half_height))
+        bottom_center_index = len(base_points)
+        base_points.append((0.0, 0.0, -half_height))
 
-        triangles = []
+        triangle_entries = []
         for side in range(sides):
             next_side = (side + 1) % sides
             top_current = side
@@ -554,37 +565,67 @@ class UsdImporter(Factory):
             bottom_current = side + sides
             bottom_next = next_side + sides
 
-            # Side quad split into two triangles
-            triangles.append((top_current, bottom_current, bottom_next))
-            triangles.append((top_current, bottom_next, top_next))
+            triangle_entries.append({"indices": (top_current, bottom_current, bottom_next), "type": "side"})
+            triangle_entries.append({"indices": (top_current, bottom_next, top_next), "type": "side"})
+            triangle_entries.append({"indices": (top_center_index, top_next, top_current), "type": "top"})
+            triangle_entries.append({"indices": (bottom_center_index, bottom_current, bottom_next), "type": "bottom"})
 
-            # Top cap
-            triangles.append((top_center_index, top_next, top_current))
-            # Bottom cap
-            triangles.append((bottom_center_index, bottom_current, bottom_next))
+        base_points_array = numpy.array(base_points, dtype=numpy.float32)
+        oriented = self._orient_triangles(base_points_array, [entry["indices"] for entry in triangle_entries])
+        for entry, oriented_indices in zip(triangle_entries, oriented):
+            entry["indices"] = oriented_indices
 
-        points_array = numpy.array(points, dtype=numpy.float32)
-        face_vertex_counts = numpy.full(len(triangles), 3, dtype=numpy.int32)
-        face_vertex_indices = numpy.array([idx for tri in triangles for idx in tri], dtype=numpy.int32)
+        axis_dir_map = {
+            UsdGeom.Tokens.x: numpy.array([1.0, 0.0, 0.0], dtype=numpy.float32),
+            UsdGeom.Tokens.y: numpy.array([0.0, 1.0, 0.0], dtype=numpy.float32),
+            UsdGeom.Tokens.z: numpy.array([0.0, 0.0, 1.0], dtype=numpy.float32),
+        }
+        axis_dir = axis_dir_map.get(axis_token, axis_dir_map[UsdGeom.Tokens.y])
 
+        rotation_matrix = self._rotation_from_z(axis_dir)
+        points_array = (rotation_matrix @ base_points_array.T).T.astype(numpy.float32)
+
+        face_vertex_counts = numpy.full(len(triangle_entries), 3, dtype=numpy.int32)
+        face_vertex_indices = numpy.array([idx for entry in triangle_entries for idx in entry["indices"]], dtype=numpy.int32)
+
+        axis_dir_normalized = self._normalize(axis_dir)
         normals = []
-        for tri_idx, (v0_idx, v1_idx, v2_idx) in enumerate(triangles):
-            v0 = points_array[v0_idx]
-            v1 = points_array[v1_idx]
-            v2 = points_array[v2_idx]
-            if tri_idx % 4 in (0, 1):
-                # Side faces
-                for vertex_idx in (v0_idx, v1_idx, v2_idx):
-                    vertex = points_array[vertex_idx]
-                    radial = numpy.array([vertex[0], 0.0, vertex[2]], dtype=numpy.float32)
+        for entry in triangle_entries:
+            for vertex_idx in entry["indices"]:
+                vertex = points_array[vertex_idx]
+                if entry["type"] == "side":
+                    projection = numpy.dot(vertex, axis_dir_normalized) * axis_dir_normalized
+                    radial = vertex - projection
                     normals.append(self._normalize(radial))
-            elif tri_idx % 4 == 2:
-                normals.extend([numpy.array([0.0, 1.0, 0.0], dtype=numpy.float32)] * 3)
-            else:
-                normals.extend([numpy.array([0.0, -1.0, 0.0], dtype=numpy.float32)] * 3)
+                elif entry["type"] == "top":
+                    normals.append(axis_dir_normalized.copy())
+                else:
+                    normals.append(-axis_dir_normalized.copy())
 
         normals_array = numpy.array(normals, dtype=numpy.float32)
         return points_array, face_vertex_counts, face_vertex_indices, normals_array
+
+    @staticmethod
+    def _rotation_from_z(target_axis: numpy.ndarray) -> numpy.ndarray:
+        z_axis = numpy.array([0.0, 0.0, 1.0], dtype=numpy.float32)
+        target_axis = target_axis.astype(numpy.float32)
+        target_axis_norm = numpy.linalg.norm(target_axis)
+        if target_axis_norm == 0.0:
+            return numpy.eye(3, dtype=numpy.float32)
+        target_axis = target_axis / target_axis_norm
+        if numpy.allclose(target_axis, z_axis):
+            return numpy.eye(3, dtype=numpy.float32)
+        if numpy.allclose(target_axis, -z_axis):
+            return numpy.diag([1.0, -1.0, -1.0]).astype(numpy.float32)
+
+        v = numpy.cross(z_axis, target_axis)
+        s = numpy.linalg.norm(v)
+        c = numpy.dot(z_axis, target_axis)
+        vx = numpy.array([[0.0, -v[2], v[1]],
+                          [v[2], 0.0, -v[0]],
+                          [-v[1], v[0], 0.0]], dtype=numpy.float32)
+        rotation = numpy.eye(3, dtype=numpy.float32) + vx + vx @ vx * ((1.0 - c) / (s ** 2))
+        return rotation.astype(numpy.float32)
 
     def _import_material(self, geom_builder: GeomBuilder, gprim_prim: Usd.Prim) -> None:  # type: ignore
         material_id = 0
