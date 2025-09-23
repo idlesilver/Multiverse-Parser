@@ -753,8 +753,16 @@ class MjcfExporter:
         assert geom_is_collidable or geom_is_visible, \
             f"Geom {geom_name} is neither collidable nor visible. Please check the USD prim {gprim_prim.GetPath()}."
 
-        # All geoms are treated as visual; collision handling will be done by external scripts
-        geom.set("class", f"{self.factory.config.model_name}_visual")
+        # NOTE: origin grouping rule are: 
+        #       All geoms are treated as visual; collision handling will be done by external scripts
+        # Now collision classes are assigned
+
+        if geom_is_collidable:
+            # since all USD visual purpose except guide are treated as visual during import, 
+            # collision geoms should be checked first for grouping
+            geom.set("class", f"{self.factory.config.model_name}_collision")
+        else:
+            geom.set("class", f"{self.factory.config.model_name}_visual")
 
     def _build_composite(self, points_builder: PointsBuilder, body: ET.Element) -> None:
         mujoco_composite_api = get_mujoco_composite_api(points_builder=points_builder)
