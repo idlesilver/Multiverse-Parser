@@ -298,6 +298,9 @@ class MjcfImporter(Factory):
         mujoco_joint_api.CreateTypeAttr(mj_joint_type)
         mujoco_joint_api.CreatePosAttr(Gf.Vec3f(*mj_joint.pos))
         mujoco_joint_api.CreateAxisAttr(Gf.Vec3f(*mj_joint.axis))
+        mujoco_joint_api.CreateArmatureAttr(mj_joint.armature[0])
+        mujoco_joint_api.CreateFrictionlossAttr(mj_joint.frictionloss[0])
+        mujoco_joint_api.CreateDampingAttr(mj_joint.damping[0])
         if mj_joint.type in [mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE]:
             mujoco_joint_api.CreateRangeAttr(Gf.Vec2f(*mj_joint.range))
 

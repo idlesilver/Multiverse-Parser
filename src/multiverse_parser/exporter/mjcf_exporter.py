@@ -804,8 +804,14 @@ class MjcfExporter:
 
         joint_type = mujoco_joint_api.GetTypeAttr().Get()
         joint_pos = mujoco_joint_api.GetPosAttr().Get()
+        joint_armature = mujoco_joint_api.GetArmatureAttr().Get()
+        joint_frictionloss = mujoco_joint_api.GetFrictionlossAttr().Get()
+        joint_damping = mujoco_joint_api.GetDampingAttr().Get()
         joint.set("type", joint_type)
         joint.set("pos", " ".join(map(str, joint_pos)))
+        joint.set("armature", str(joint_armature))
+        joint.set("frictionloss", str(joint_frictionloss))
+        joint.set("damping", str(joint_damping))
 
         if joint_builder.type == JointType.PRISMATIC or joint_builder.type == JointType.REVOLUTE:
             joint_range = mujoco_joint_api.GetRangeAttr().Get()
