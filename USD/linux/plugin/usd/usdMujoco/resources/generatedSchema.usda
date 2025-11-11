@@ -172,9 +172,21 @@ class "MujocoJointAPI" (
     doc = "This element creates a joint."
 )
 {
+    float mujoco:joint:armature = 0 (
+        displayName = "Armature"
+        doc = "Additional inertia associated with movement of the joint that is not due to body mass. This added inertia is usually due to a rotor (a.k.a armature) spinning faster than the joint itself due to a geared transmission."
+    )
     vector3f mujoco:joint:axis = (0, 0, 1) (
         displayName = "Joint Axis"
         doc = "This attribute specifies the axis of rotation for hinge joints and the direction of translation for slide joints."
+    )
+    float mujoco:joint:damping = 0 (
+        displayName = "Damping"
+        doc = "Damping applied to all degrees of freedom created by this joint. Unlike friction loss which is computed by the constraint solver, damping is simply a force linear in velocity."
+    )
+    float mujoco:joint:frictionloss = 0 (
+        displayName = "Friction Loss"
+        doc = "Friction loss due to dry friction. This value is the same for all degrees of freedom created by this joint."
     )
     point3f mujoco:joint:pos (
         displayName = "Joint Position"
