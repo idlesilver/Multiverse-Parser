@@ -13,7 +13,7 @@ if not exist "%EXT_DIR%" (
 
   set "USD_DIR=%EXT_DIR%\USD\windows"
   mkdir "!USD_DIR!"
-  xcopy /e /i /y USD\windows "!USD_DIR!\windows"
+  xcopy /e /i /y USD\windows "!USD_DIR!"
 )
 @REM python -m build
 
