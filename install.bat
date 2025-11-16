@@ -54,7 +54,6 @@ for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\
 --no-openimageio ^
 --no-opencolorio ^
 --no-alembic ^
---no-hdf5 ^
 --no-draco ^
 --no-materialx ^
 --no-onetbb ^

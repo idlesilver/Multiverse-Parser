@@ -11,7 +11,7 @@ if [ ! -d "$EXT_DIR" ]; then
     mkdir -p "$BLENDER_DIR"
     cp -r ext/blender/* "$BLENDER_DIR"/
 
-    USD_DIR="$EXT_DIR"/USD/linux
+    USD_DIR="$EXT_DIR"/USD
     mkdir -p "$USD_DIR"
     cp -r USD/linux "$USD_DIR"
 fi

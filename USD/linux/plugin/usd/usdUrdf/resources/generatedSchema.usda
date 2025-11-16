@@ -4,219 +4,315 @@
 )
 
 class Urdf "Urdf" (
-    doc = "Urdf"
+    customData = {
+        string userDocBrief = "Urdf."
+    }
 )
 {
     string urdf:name (
+        customData = {
+            string userDocBrief = "The name of the model."
+        }
         displayName = "Name"
-        doc = "The name of the model."
     )
 }
 
 class UrdfRobot "UrdfRobot" (
-    doc = "Describes all properties of a robot."
+    customData = {
+        string userDocBrief = "Describes all properties of a robot."
+    }
 )
 {
 }
 
 class UrdfMaterial "UrdfMaterial" (
-    doc = "Describes all properties of a robot."
+    customData = {
+        string userDocBrief = "Describes all properties of a robot."
+    }
 )
 {
     color4f urdf:material:rgba (
+        customData = {
+            string userDocBrief = "The color of a material specified by set of four numbers representing red/green/blue/alpha, each in the range of [0,1]."
+        }
         displayName = "Material RGBA"
-        doc = "The color of a material specified by set of four numbers representing red/green/blue/alpha, each in the range of [0,1]."
     )
     asset urdf:material:texture (
+        customData = {
+            string userDocBrief = "The texture of a material is specified by a filename."
+        }
         displayName = "Material Texture"
-        doc = "The texture of a material is specified by a filename."
     )
 }
 
 class "UrdfLinkVisualAPI" (
-    doc = "The visual properties of the link."
+    customData = {
+        string userDocBrief = "The visual properties of the link."
+    }
 )
 {
     rel urdf:visual:material (
+        customData = {
+            string userDocBrief = "The material of the visual element."
+        }
         displayName = "Visual Material"
-        doc = "The material of the visual element."
     )
     float3 urdf:visual:origin:rpy = (0, 0, 0) (
+        customData = {
+            string userDocBrief = "Describes the orientation of the geometry frame relative to the link frame."
+        }
         displayName = "Visual Origin Roll Pitch Yaw"
-        doc = "Describes the orientation of the geometry frame relative to the link frame."
     )
     point3f urdf:visual:origin:xyz = (0, 0, 0) (
+        customData = {
+            string userDocBrief = "Describes the position of the geometry frame relative to the link frame."
+        }
         displayName = "Visual Origin X Y Z"
-        doc = "Describes the position of the geometry frame relative to the link frame."
     )
 }
 
 class "UrdfLinkCollisionAPI" (
-    doc = "The collision properties of the link."
+    customData = {
+        string userDocBrief = "The collision properties of the link."
+    }
 )
 {
     float3 urdf:collision:origin:rpy = (0, 0, 0) (
+        customData = {
+            string userDocBrief = "Describes the orientation of the geometry frame relative to the link frame."
+        }
         displayName = "Collision Origin Roll Pitch Yaw"
-        doc = "Describes the orientation of the geometry frame relative to the link frame."
     )
     point3f urdf:collision:origin:xyz = (0, 0, 0) (
+        customData = {
+            string userDocBrief = "Describes the position of the geometry frame relative to the link frame."
+        }
         displayName = "Collision Origin X Y Z"
-        doc = "Describes the position of the geometry frame relative to the link frame."
     )
 }
 
 class "UrdfGeometryBoxAPI" (
-    doc = "The box shape of the object."
+    customData = {
+        string userDocBrief = "The box shape of the object."
+    }
 )
 {
     float3 urdf:geometry:box:size (
+        customData = {
+            string userDocBrief = "Size attribute contains the three side lengths of the box."
+        }
         displayName = "Geometry Box Size"
-        doc = "Size attribute contains the three side lengths of the box."
     )
 }
 
 class "UrdfGeometryCylinderAPI" (
-    doc = "The cylinder shape of the object."
+    customData = {
+        string userDocBrief = "The cylinder shape of the object."
+    }
 )
 {
     float urdf:geometry:cylinder:length (
+        customData = {
+            string userDocBrief = "Length attribute contains the length of the cylinder."
+        }
         displayName = "Geometry Cylinder Length"
-        doc = "Length attribute contains the length of the cylinder."
     )
     float urdf:geometry:cylinder:radius (
+        customData = {
+            string userDocBrief = "Radius attribute contains the radius of the cylinder."
+        }
         displayName = "Geometry Cylinder Radius"
-        doc = "Radius attribute contains the radius of the cylinder."
     )
 }
 
 class "UrdfGeometrySphereAPI" (
-    doc = "The sphere shape of the object."
+    customData = {
+        string userDocBrief = "The sphere shape of the object."
+    }
 )
 {
     float urdf:geometry:sphere:radius (
+        customData = {
+            string userDocBrief = "Radius attribute contains the radius of the sphere."
+        }
         displayName = "Geometry Sphere Radius"
-        doc = "Radius attribute contains the radius of the sphere."
     )
 }
 
 class "UrdfGeometryMeshAPI" (
-    doc = "The mesh shape of the object."
+    customData = {
+        string userDocBrief = "The mesh shape of the object."
+    }
 )
 {
     asset urdf:geometry:mesh:filename (
+        customData = {
+            string userDocBrief = "Filename attribute contains the path to the mesh file."
+        }
         displayName = "Geometry Mesh Filename"
-        doc = "Filename attribute contains the path to the mesh file."
     )
     float3 urdf:geometry:mesh:scale (
+        customData = {
+            string userDocBrief = "Scale attribute contains the scaling of the mesh."
+        }
         displayName = "Geometry Mesh Scale"
-        doc = "Scale attribute contains the scaling of the mesh."
     )
 }
 
 class "UrdfLinkInertialAPI" (
-    doc = "The inertial properties of the link."
+    customData = {
+        string userDocBrief = "The inertial properties of the link."
+    }
 )
 {
     float urdf:link:inertial:inertia:ixx (
+        customData = {
+            string userDocBrief = "The moment of inertia around the x-axis."
+        }
         displayName = "Inertial Ixx"
-        doc = "The moment of inertia around the x-axis."
     )
     float urdf:link:inertial:inertia:ixy (
+        customData = {
+            string userDocBrief = "The moment of inertia around the x axis as the object rotates around the y axis."
+        }
         displayName = "Inertial Ixy"
-        doc = "The moment of inertia around the x axis as the object rotates around the y axis."
     )
     float urdf:link:inertial:inertia:ixz (
+        customData = {
+            string userDocBrief = "The moment of inertia around the x axis as the object rotates around the z axis."
+        }
         displayName = "Inertial Ixz"
-        doc = "The moment of inertia around the x axis as the object rotates around the z axis."
     )
     float urdf:link:inertial:inertia:iyy (
+        customData = {
+            string userDocBrief = "The moment of inertia around the y-axis."
+        }
         displayName = "Inertial Iyy"
-        doc = "The moment of inertia around the y-axis."
     )
     float urdf:link:inertial:inertia:iyz (
+        customData = {
+            string userDocBrief = "The moment of inertia around the y axis as the object rotates around the z axis."
+        }
         displayName = "Inertial Iyz"
-        doc = "The moment of inertia around the y axis as the object rotates around the z axis."
     )
     float urdf:link:inertial:inertia:izz (
+        customData = {
+            string userDocBrief = "The moment of inertia around the z-axis."
+        }
         displayName = "Inertial Izz"
-        doc = "The moment of inertia around the z-axis."
     )
     float urdf:link:inertial:mass (
+        customData = {
+            string userDocBrief = "The mass of the link."
+        }
         displayName = "Inertial Mass"
-        doc = "The mass of the link."
     )
     float3 urdf:link:inertial:origin:rpy (
+        customData = {
+            string userDocBrief = "Describes the orientation of the link's center of mass relative to the link frame."
+        }
         displayName = "Inertial Origin Roll Pitch Yaw"
-        doc = "Describes the orientation of the link's center of mass relative to the link frame."
     )
     point3f urdf:link:inertial:origin:xyz (
+        customData = {
+            string userDocBrief = "Describes the position of the link's center of mass relative to the link frame."
+        }
         displayName = "Inertial Origin X Y Z"
-        doc = "Describes the position of the link's center of mass relative to the link frame."
     )
 }
 
 class "UrdfLinkAPI" (
-    doc = "Describes the kinematic and dynamic properties of a link."
+    customData = {
+        string userDocBrief = "Describes the kinematic and dynamic properties of a link."
+    }
 )
 {
 }
 
 class "UrdfJointAPI" (
-    doc = "Describes the kinematic and dynamic properties of a joint."
+    customData = {
+        string userDocBrief = "Describes the kinematic and dynamic properties of a joint."
+    }
 )
 {
     vector3f urdf:joint:axis (
+        customData = {
+            string userDocBrief = "The axis of rotation."
+        }
         displayName = "Joint Axis"
-        doc = "The axis of rotation."
     )
     rel urdf:joint:child (
+        customData = {
+            string userDocBrief = "The name of the child link."
+        }
         displayName = "Joint Child"
-        doc = "The name of the child link."
     )
     float urdf:joint:limit:effort (
+        customData = {
+            string userDocBrief = "The maximum effort the joint can apply."
+        }
         displayName = "Joint Limit Effort"
-        doc = "The maximum effort the joint can apply."
     )
     float urdf:joint:limit:lower (
+        customData = {
+            string userDocBrief = "The lower limit of the joint."
+        }
         displayName = "Joint Limit Lower"
-        doc = "The lower limit of the joint."
     )
     float urdf:joint:limit:upper (
+        customData = {
+            string userDocBrief = "The upper limit of the joint."
+        }
         displayName = "Joint Limit Upper"
-        doc = "The upper limit of the joint."
     )
     float urdf:joint:limit:velocity (
+        customData = {
+            string userDocBrief = "The maximum velocity the joint can apply."
+        }
         displayName = "Joint Limit Velocity"
-        doc = "The maximum velocity the joint can apply."
     )
     rel urdf:joint:mimic:joint (
+        customData = {
+            string userDocBrief = "This specifies the name of the joint to mimic."
+        }
         displayName = "Joint Mimic Joint"
-        doc = "This specifies the name of the joint to mimic."
     )
     float urdf:joint:mimic:multiplier = 1 (
+        customData = {
+            string userDocBrief = "Specifies the multiplicative factor in the formula (value = multiplier * other_joint_value + offset)."
+        }
         displayName = "Joint Mimic Multiplier"
-        doc = "Specifies the multiplicative factor in the formula (value = multiplier * other_joint_value + offset)."
     )
     float urdf:joint:mimic:offset = 0 (
+        customData = {
+            string userDocBrief = "Specifies the offset to add in the formula (value = multiplier * other_joint_value + offset)."
+        }
         displayName = "Joint Mimic Offset"
-        doc = "Specifies the offset to add in the formula (value = multiplier * other_joint_value + offset). Defaults to 0 (radians for revolute joints, meters for prismatic joints)"
     )
     float3 urdf:joint:origin:rpy (
+        customData = {
+            string userDocBrief = "Describes the orientation of the joint frame relative to the parent link frame."
+        }
         displayName = "Joint Origin Roll Pitch Yaw"
-        doc = "Describes the orientation of the joint frame relative to the parent link frame."
     )
     point3f urdf:joint:origin:xyz (
+        customData = {
+            string userDocBrief = "Describes the position of the joint frame relative to the parent link frame."
+        }
         displayName = "Joint Origin Position"
-        doc = "Describes the position of the joint frame relative to the parent link frame."
     )
     rel urdf:joint:parent (
+        customData = {
+            string userDocBrief = "The name of the parent link."
+        }
         displayName = "Joint Parent"
-        doc = "The name of the parent link."
     )
     uniform token urdf:joint:type (
         allowedTokens = ["revolute", "continuous", "prismatic", "fixed", "floating", "planar"]
+        customData = {
+            string userDocBrief = "Type of the joint."
+        }
         displayName = "Joint Type"
-        doc = "Type of the joint."
     )
 }
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "multiverse_parser"
-version = "0.0.5"
+version = "0.0.6"
 authors = [
   { name="Giang Nguyen", email="hoanggia@uni-bremen.de" },
 ]

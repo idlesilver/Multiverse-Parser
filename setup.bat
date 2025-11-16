@@ -35,7 +35,7 @@ if not exist "%ZIP_DIR%" (
 set "BLENDER_DIR=%EXT_DIR%\blender"
 if not exist "%BLENDER_DIR%" (
   set "BLENDER_VERSION=4.5"
-  set "BLENDER=blender-!BLENDER_VERSION!.1-windows-x64"
+  set "BLENDER=blender-!BLENDER_VERSION!.4-windows-x64"
   set "BLENDER_ZIP_FILE=!BLENDER!.zip"
   powershell -NoProfile -Command "C:\Windows\System32\curl.exe --ssl-no-revoke -L -o '%EXT_DIR%\!BLENDER_ZIP_FILE!' https://download.blender.org/release/Blender!BLENDER_VERSION!/!BLENDER_ZIP_FILE!"
   powershell -NoProfile -Command "%ZIP_EXECUTABLE% x '%EXT_DIR%\!BLENDER_ZIP_FILE!' -o'%EXT_DIR%'"
@@ -49,7 +49,7 @@ if not exist "%BLENDER_DIR%" (
 if /i "%USD_ENABLED%"=="true" (
   set "USD_SRC_DIR=%EXT_DIR%\OpenUSD"
   if not exist "!USD_SRC_DIR!" (
-    git clone https://github.com/PixarAnimationStudios/OpenUSD.git --depth 1 --branch v25.02 "!USD_SRC_DIR!"
+    git clone https://github.com/PixarAnimationStudios/OpenUSD.git --depth 1 --branch v25.11 "!USD_SRC_DIR!"
   )
   
   set "BUILD_DIR=%CD%\build"
@@ -81,7 +81,6 @@ if /i "%USD_ENABLED%"=="true" (
     --no-openimageio ^
     --no-opencolorio ^
     --no-alembic ^
-    --no-hdf5 ^
     --no-draco ^
     --no-materialx ^
     --no-onetbb ^

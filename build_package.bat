@@ -11,7 +11,7 @@ if not exist "%EXT_DIR%" (
   mkdir "!BLENDER_DIR%!
   xcopy /e /i /y ext\blender\* "!BLENDER_DIR!\"
 
-  set "USD_DIR=%EXT_DIR%\USD\windows"
+  set "USD_DIR=%EXT_DIR%\USD"
   mkdir "!USD_DIR!"
   xcopy /e /i /y USD\windows "!USD_DIR!"
 )
