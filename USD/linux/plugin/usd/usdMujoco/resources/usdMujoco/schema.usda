@@ -386,6 +386,32 @@ class "MujocoJointAPI" (
         doc = "The range of motion of the joint. For hinge joints, this is the range of rotation in radians. For slide joints, this is the range of translation in meters."
     )
 
+    uniform token mujoco:joint:limited = "auto" (
+        customData = {
+            string apiName = "limited"
+        }
+        allowedTokens = ["false", "true", "auto"]
+        displayName = "Joint Limited"
+        doc = """This attribute specifies if the joint has limits. It interacts with the range attribute. If this attribute is “false”, joint limits are disabled. If this attribute is “true”, joint limits are enabled."""
+    )
+
+    float2 mujoco:joint:actuatorfrcrange (
+        customData = {
+            string apiName = "actuatorfrcrange"
+        }
+        displayName = "Joint Actuator Force Range"
+        doc = "Range for clamping total actuator forces acting on this joint."
+    )
+
+    uniform token mujoco:joint:actuatorfrclimited = "auto" (
+        customData = {
+            string apiName = "actuatorfrclimited"
+        }
+        allowedTokens = ["false", "true", "auto"]
+        displayName = "Joint Actuator Force Limited"
+        doc = """This attribute interacts with the actuatorfrcrange attribute. If this attribute is “false”, actuator force clamping is disabled. If it is “true”, actuator force clamping is enabled. If this attribute is “auto”, and autolimits is set in compiler, actuator force clamping will be enabled if actuatorfrcrange is defined."""
+    )
+
     float mujoco:joint:armature = 0.0 (
         customData = {
             string apiName = "armature"
@@ -408,6 +434,127 @@ class "MujocoJointAPI" (
         }
         displayName = "Damping"
         doc = "Damping applied to all degrees of freedom created by this joint. Unlike friction loss which is computed by the constraint solver, damping is simply a force linear in velocity."
+    )
+}
+
+class MujocoActuator "MujocoActuator" (
+    customData = {
+        string className = "MujocoActuator"
+    }
+
+    doc = """This element creates an actuator."""
+
+    inherits = </Typed>
+)
+{
+    rel mujoco:actuator:joint (
+        customData = {
+            string apiName = "joint"
+        }
+        displayName = "Joint"
+        doc = "The joint to which this actuator is applied."
+    )
+
+    uniform token mujoco:actuator:ctrllimited = "auto" (
+        customData = {
+            string apiName = "ctrllimited"
+        }
+        allowedTokens = ["false", "true", "auto"]
+        displayName = "Control Limited"
+        doc = """If true, the control input to this actuator is automatically clamped to ctrlrange at runtime. If false, control input clamping is disabled. If “auto” and autolimits is set in compiler, control clamping will automatically be set to true if ctrlrange is defined without explicitly setting this attribute to “true”."""
+    )
+
+    uniform token mujoco:actuator:forcelimited = "auto" (
+        customData = {
+            string apiName = "forcelimited"
+        }
+        allowedTokens = ["false", "true", "auto"]
+        displayName = "Force Limited"
+        doc = """If true, the force output of this actuator is automatically clamped to forcerange at runtime. If false, force clamping is disabled. If “auto” and autolimits is set in compiler, force clamping will automatically be set to true if forcerange is defined without explicitly setting this attribute to “true”."""
+    )
+
+    uniform token mujoco:actuator:actlimited = "auto" (
+        customData = {
+            string apiName = "actlimited"
+        }
+        allowedTokens = ["false", "true", "auto"]
+        displayName = "Actuator Limited"
+        doc = """If true, the internal state (activation) associated with this actuator is automatically clamped to actrange at runtime. If false, activation clamping is disabled. If “auto” and autolimits is set in compiler, activation clamping will automatically be set to true if actrange is defined without explicitly setting this attribute to “true”."""
+    )
+
+    float2 mujoco:actuator:ctrlrange (
+        customData = {
+            string apiName = "ctrlrange"
+        }
+        displayName = "Control Range"
+        doc = "Range for clamping the control input. The first value must be smaller than the second value."
+    )
+
+    float2 mujoco:actuator:forcerange (
+        customData = {
+            string apiName = "forcerange"
+        }
+        displayName = "Force Range"
+        doc = "Range for clamping the force output. The first value must be no greater than the second value."
+    )
+
+    float2 mujoco:actuator:actrange (
+        customData = {
+            string apiName = "actrange"
+        }
+        displayName = "Actuator Range"
+        doc = "Range for clamping the activation state. The first value must be no greater than the second value. See the Activation clamping section for more details."
+    )
+
+    uniform token mujoco:actuator:dyntype = "none" (
+        customData = {
+            string apiName = "dyntype"
+        }
+        allowedTokens = ["none", "integrator", "filter", "filterexact", "muscle", "user"]
+        displayName = "Dynamics Type"
+        doc = """Activation dynamics type for the actuator."""
+    )
+
+    uniform token mujoco:actuator:gaintype = "fixed" (
+        customData = {
+            string apiName = "gaintype"
+        }
+        allowedTokens = ["fixed", "affine", "muscle", "user"]
+        displayName = "Gain Type"
+        doc = """The gain and bias together determine the output of the force generation mechanism, which is currently assumed to be affine."""
+    )
+
+    uniform token mujoco:actuator:biastype = "none" (
+        customData = {
+            string apiName = "biastype"
+        }
+        allowedTokens = ["none", "affine", "muscle", "user"]
+        displayName = "Bias Type"
+        doc = """The gain and bias together determine the output of the force generation mechanism, which is currently assumed to be affine."""
+    )
+
+    float[] mujoco:actuator:dynprm (
+        customData = {
+            string apiName = "dynprm"
+        }
+        displayName = "Dynamics Parameters"
+        doc = "Activation dynamics parameters."
+    )
+
+    float[] mujoco:actuator:gainprm (
+        customData = {
+            string apiName = "gainprm"
+        }
+        displayName = "Gain Parameters"
+        doc = "Gain parameters."
+    )
+
+    float[] mujoco:actuator:biasprm (
+        customData = {
+            string apiName = "biasprm"
+        }
+        displayName = "Bias Parameters"
+        doc = "Bias parameters."
     )
 }
 

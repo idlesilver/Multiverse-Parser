@@ -24,6 +24,7 @@ pxr_plugin(${PXR_PACKAGE}
         mujocoCompositeAPI
         mujocoJointAPI
         mujocoGeomAPI
+        mujocoActuator
         mujocoEquality
         mujocoEqualityJoint
         tokens
@@ -47,6 +48,7 @@ pxr_plugin(${PXR_PACKAGE}
         wrapMujocoCompositeAPI.cpp
         wrapMujocoJointAPI.cpp
         wrapMujocoGeomAPI.cpp
+        wrapMujocoActuator.cpp
         wrapMujocoEquality.cpp
         wrapMujocoEqualityJoint.cpp
 

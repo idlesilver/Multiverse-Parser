@@ -326,6 +326,8 @@ class MjcfExporter:
 
         self._export_equality()
 
+        self._export_actuator()
+
         self._build_asset()
 
         if self.factory.config.with_physics:
@@ -815,7 +817,13 @@ class MjcfExporter:
 
         if joint_builder.type == JointType.PRISMATIC or joint_builder.type == JointType.REVOLUTE:
             joint_range = mujoco_joint_api.GetRangeAttr().Get()
+            joint_limited = mujoco_joint_api.GetLimitedAttr().Get()
+            joint_actfrcrange = mujoco_joint_api.GetActuatorfrcrangeAttr().Get()
+            joint_actfrclimited = mujoco_joint_api.GetActuatorfrclimitedAttr().Get()
             joint.set("range", " ".join(map(str, joint_range)))
+            joint.set("limited", joint_limited)
+            joint.set("actuatorfrcrange", " ".join(map(str, joint_actfrcrange)))
+            joint.set("actuatorfrclimited", joint_actfrclimited)
 
         if joint_builder.type != JointType.SPHERICAL:
             joint_axis = mujoco_joint_api.GetAxisAttr().Get()
@@ -857,6 +865,47 @@ class MjcfExporter:
                 equality_joint.set("joint1", joint1_name)
                 equality_joint.set("joint2", joint2_name)
                 equality_joint.set("polycoef", " ".join(map(str, poly_coef)))
+
+    def _export_actuator(self):
+        stage = self.factory.world_builder.stage
+
+        actuator_prim = stage.GetPrimAtPath("/mujoco/actuator")
+        actuator = ET.SubElement(self.root, "actuator")
+        for child_prim in actuator_prim.GetChildren():
+            if child_prim.IsA(UsdMujoco.MujocoActuator):  # type: ignore
+                mujoco_actuator = UsdMujoco.MujocoActuator(child_prim)  # type: ignore
+                joint_path = mujoco_actuator.GetJointRel().GetTargets()[0]
+                assert stage.GetPrimAtPath(joint_path).IsA(UsdPhysics.Joint), \
+                    f"Actuator {child_prim.GetName()} joint does not exist."
+                joint_name = joint_path.name
+                actlimited = mujoco_actuator.GetActlimitedAttr().Get()
+                actrange = mujoco_actuator.GetActrangeAttr().Get()
+                ctrllimited = mujoco_actuator.GetCtrllimitedAttr().Get()
+                ctrlrange = mujoco_actuator.GetCtrlrangeAttr().Get()
+                forcelimited = mujoco_actuator.GetForcelimitedAttr().Get()
+                forcerange = mujoco_actuator.GetForcerangeAttr().Get()
+                biasprm = mujoco_actuator.GetBiasprmAttr().Get()
+                biastype = mujoco_actuator.GetBiastypeAttr().Get()
+                dynprm = mujoco_actuator.GetDynprmAttr().Get()
+                dyntype = mujoco_actuator.GetDyntypeAttr().Get()
+                gainprm = mujoco_actuator.GetGainprmAttr().Get()
+                gaintype = mujoco_actuator.GetGaintypeAttr().Get()
+
+                general = ET.SubElement(actuator, "general")
+                general.set("name", child_prim.GetName())
+                general.set("joint", joint_name)
+                general.set("actlimited", actlimited)
+                general.set("actrange", " ".join(map(str, actrange)))
+                general.set("ctrllimited", ctrllimited)
+                general.set("ctrlrange", " ".join(map(str, ctrlrange)))
+                general.set("forcelimited", forcelimited)
+                general.set("forcerange", " ".join(map(str, forcerange)))
+                general.set("biasprm", " ".join(map(str, biasprm)))
+                general.set("biastype", str(biastype))
+                general.set("dynprm", " ".join(map(str, dynprm)))
+                general.set("dyntype", str(dyntype))
+                general.set("gainprm", " ".join(map(str, gainprm)))
+                general.set("gaintype", str(gaintype))
 
     def _move_free_bodies(self) -> None:
         non_free_body_names = set()

@@ -244,6 +244,19 @@ class "MujocoJointAPI" (
     }
 )
 {
+    uniform token mujoco:joint:actuatorfrclimited = "auto" (
+        allowedTokens = ["false", "true", "auto"]
+        customData = {
+            string userDocBrief = "This attribute interacts with the actuatorfrcrange attribute."
+        }
+        displayName = "Joint Actuator Force Limited"
+    )
+    float2 mujoco:joint:actuatorfrcrange (
+        customData = {
+            string userDocBrief = "Range for clamping total actuator forces acting on this joint."
+        }
+        displayName = "Joint Actuator Force Range"
+    )
     float mujoco:joint:armature = 0 (
         customData = {
             string userDocBrief = "Additional inertia associated with movement of the joint that is not due to body mass."
@@ -268,6 +281,13 @@ class "MujocoJointAPI" (
         }
         displayName = "Friction Loss"
     )
+    uniform token mujoco:joint:limited = "auto" (
+        allowedTokens = ["false", "true", "auto"]
+        customData = {
+            string userDocBrief = "This attribute specifies if the joint has limits."
+        }
+        displayName = "Joint Limited"
+    )
     point3f mujoco:joint:pos (
         customData = {
             string userDocBrief = "The 3D position (x, y, z) of the joint, specified in the frame of the body where the joint is defined."
@@ -286,6 +306,98 @@ class "MujocoJointAPI" (
             string userDocBrief = "Type of the joint."
         }
         displayName = "Joint Type"
+    )
+}
+
+class MujocoActuator "MujocoActuator" (
+    customData = {
+        string userDocBrief = "This element creates an actuator."
+    }
+)
+{
+    uniform token mujoco:actuator:actlimited = "auto" (
+        allowedTokens = ["false", "true", "auto"]
+        customData = {
+            string userDocBrief = "If true, the internal state (activation) associated with this actuator is automatically clamped to actrange at runtime."
+        }
+        displayName = "Actuator Limited"
+    )
+    float2 mujoco:actuator:actrange (
+        customData = {
+            string userDocBrief = "Range for clamping the activation state."
+        }
+        displayName = "Actuator Range"
+    )
+    float[] mujoco:actuator:biasprm (
+        customData = {
+            string userDocBrief = "Bias parameters."
+        }
+        displayName = "Bias Parameters"
+    )
+    uniform token mujoco:actuator:biastype = "none" (
+        allowedTokens = ["none", "affine", "muscle", "user"]
+        customData = {
+            string userDocBrief = "The gain and bias together determine the output of the force generation mechanism, which is currently assumed to be affine."
+        }
+        displayName = "Bias Type"
+    )
+    uniform token mujoco:actuator:ctrllimited = "auto" (
+        allowedTokens = ["false", "true", "auto"]
+        customData = {
+            string userDocBrief = "If true, the control input to this actuator is automatically clamped to ctrlrange at runtime."
+        }
+        displayName = "Control Limited"
+    )
+    float2 mujoco:actuator:ctrlrange (
+        customData = {
+            string userDocBrief = "Range for clamping the control input."
+        }
+        displayName = "Control Range"
+    )
+    float[] mujoco:actuator:dynprm (
+        customData = {
+            string userDocBrief = "Activation dynamics parameters."
+        }
+        displayName = "Dynamics Parameters"
+    )
+    uniform token mujoco:actuator:dyntype = "none" (
+        allowedTokens = ["none", "integrator", "filter", "filterexact", "muscle", "user"]
+        customData = {
+            string userDocBrief = "Activation dynamics type for the actuator."
+        }
+        displayName = "Dynamics Type"
+    )
+    uniform token mujoco:actuator:forcelimited = "auto" (
+        allowedTokens = ["false", "true", "auto"]
+        customData = {
+            string userDocBrief = "If true, the force output of this actuator is automatically clamped to forcerange at runtime."
+        }
+        displayName = "Force Limited"
+    )
+    float2 mujoco:actuator:forcerange (
+        customData = {
+            string userDocBrief = "Range for clamping the force output."
+        }
+        displayName = "Force Range"
+    )
+    float[] mujoco:actuator:gainprm (
+        customData = {
+            string userDocBrief = "Gain parameters."
+        }
+        displayName = "Gain Parameters"
+    )
+    uniform token mujoco:actuator:gaintype = "fixed" (
+        allowedTokens = ["fixed", "affine", "muscle", "user"]
+        customData = {
+            string userDocBrief = "The gain and bias together determine the output of the force generation mechanism, which is currently assumed to be affine."
+        }
+        displayName = "Gain Type"
+    )
+    rel mujoco:actuator:joint (
+        customData = {
+            string userDocBrief = "The joint to which this actuator is applied."
+        }
+        displayName = "Joint"
     )
 }
 

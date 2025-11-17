@@ -22,6 +22,25 @@ from ..factory import (WorldBuilder, BodyBuilder,
 from pxr import UsdMujoco, Gf, Usd
 
 
+limited_dict = {numpy.uint8(mujoco.mjtLimited.mjLIMITED_AUTO.value): "auto",
+                numpy.uint8(mujoco.mjtLimited.mjLIMITED_TRUE.value): "true",
+                numpy.uint8(mujoco.mjtLimited.mjLIMITED_FALSE.value): "false"}
+bias_type_dict = {numpy.uint8(mujoco.mjtBias.mjBIAS_NONE.value): "none",
+                    numpy.uint8(mujoco.mjtBias.mjBIAS_AFFINE.value): "affine",
+                    numpy.uint8(mujoco.mjtBias.mjBIAS_MUSCLE.value): "muscle",
+                    numpy.uint8(mujoco.mjtBias.mjBIAS_USER.value): "user"}
+dyn_type_dict = {numpy.uint8(mujoco.mjtDyn.mjDYN_NONE.value): "none",
+                    numpy.uint8(mujoco.mjtDyn.mjDYN_INTEGRATOR.value): "integrator",
+                    numpy.uint8(mujoco.mjtDyn.mjDYN_FILTER.value): "filter",
+                    numpy.uint8(mujoco.mjtDyn.mjDYN_FILTEREXACT.value): "filterexact",
+                    numpy.uint8(mujoco.mjtDyn.mjDYN_MUSCLE.value): "muscle",
+                    numpy.uint8(mujoco.mjtDyn.mjDYN_USER.value): "user"}
+gain_type_dict = {numpy.uint8(mujoco.mjtGain.mjGAIN_FIXED.value): "fixed",
+                    numpy.uint8(mujoco.mjtGain.mjGAIN_AFFINE.value): "affine",
+                    numpy.uint8(mujoco.mjtGain.mjGAIN_MUSCLE.value): "muscle",
+                    numpy.uint8(mujoco.mjtGain.mjGAIN_USER.value): "user"}
+
+
 def get_model_name(xml_file_path: str) -> str:
     with open(xml_file_path) as xml_file:
         for line in xml_file:
@@ -147,6 +166,8 @@ class MjcfImporter(Factory):
             self._import_points(body_builder=body_builder)
 
         self._import_equality()
+
+        self._import_actuator()
 
         self.world_builder.export()
 
@@ -303,6 +324,9 @@ class MjcfImporter(Factory):
         mujoco_joint_api.CreateDampingAttr(mj_joint.damping[0])
         if mj_joint.type in [mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE]:
             mujoco_joint_api.CreateRangeAttr(Gf.Vec2f(*mj_joint.range))
+            mujoco_joint_api.CreateLimitedAttr(limited_dict[mj_joint.limited[0]])
+            mujoco_joint_api.CreateActuatorfrcrangeAttr(Gf.Vec2f(*self.mj_model.jnt_actfrcrange[joint_id]))
+            mujoco_joint_api.CreateActuatorfrclimitedAttr(limited_dict[self.mj_model.jnt_actfrclimited[joint_id]])
 
         return joint_builder
 
@@ -572,6 +596,39 @@ class MjcfImporter(Factory):
                 mujoco_equality_joint.CreateJoint1Rel().SetTargets([joint1_path])
                 mujoco_equality_joint.CreateJoint2Rel().SetTargets([joint2_path])
                 mujoco_equality_joint.CreatePolycoefAttr(equality.data[:5])
+
+    def _import_actuator(self):
+        actuator_prim = UsdMujoco.MujocoActuator.Define(self.world_builder.stage, "/mujoco/actuator")
+        for actuator_id in range(self.mj_model.nu):
+            actuator = self.mj_model.actuator(actuator_id)
+            if self.config.with_physics:
+                actuator_name = actuator.name
+                if actuator_name == "":
+                    actuator_name = "Actuator_" + str(actuator_id)
+                mujoco_actuator = UsdMujoco.MujocoActuator.Define(self.world_builder.stage,
+                                                                          actuator_prim.GetPath().AppendChild(
+                                                                              actuator_name))
+                transmission_type = actuator.trntype
+                assert transmission_type == mujoco.mjtTrn.mjTRN_JOINT, \
+                    f"Actuator transmission type {transmission_type} not supported."
+                joint_id = actuator.trnid[0]
+                assert joint_id in self._joint_builders, \
+                    f"Actuator joint id {joint_id} not found in joint builders."
+                joint_path = self._joint_builders[joint_id].joint.GetPath()
+                mujoco_actuator.CreateJointRel().SetTargets([joint_path])
+
+                mujoco_actuator.CreateActlimitedAttr(limited_dict[actuator.actlimited[0]])
+                mujoco_actuator.CreateActrangeAttr(Gf.Vec2f(*actuator.actrange))
+                mujoco_actuator.CreateCtrllimitedAttr(limited_dict[actuator.ctrllimited[0]])
+                mujoco_actuator.CreateCtrlrangeAttr(Gf.Vec2f(*actuator.ctrlrange))
+                mujoco_actuator.CreateForcelimitedAttr(limited_dict[actuator.forcelimited[0]])
+                mujoco_actuator.CreateForcerangeAttr(Gf.Vec2f(*actuator.forcerange))
+                mujoco_actuator.CreateBiasprmAttr(actuator.biasprm[:10])
+                mujoco_actuator.CreateBiastypeAttr(bias_type_dict[actuator.biastype[0]])
+                mujoco_actuator.CreateDynprmAttr(actuator.dynprm[:10])
+                mujoco_actuator.CreateDyntypeAttr(dyn_type_dict[actuator.dyntype[0]])
+                mujoco_actuator.CreateGainprmAttr(actuator.gainprm[:10])
+                mujoco_actuator.CreateGaintypeAttr(gain_type_dict[actuator.gaintype[0]])
 
     @property
     def mj_model(self) -> mujoco.MjModel:

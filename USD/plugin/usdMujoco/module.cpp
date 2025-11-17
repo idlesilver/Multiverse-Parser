@@ -22,6 +22,7 @@ TF_WRAP_MODULE
     TF_WRAP(UsdMujocoMujocoJointAPI);
     TF_WRAP(UsdMujocoMujocoGeomAPI);
 
+    TF_WRAP(UsdMujocoMujocoActuator);
     TF_WRAP(UsdMujocoMujocoEquality);
     TF_WRAP(UsdMujocoMujocoEqualityJoint);
 }
