@@ -602,18 +602,18 @@ class MjcfImporter(Factory):
         for actuator_id in range(self.mj_model.nu):
             actuator = self.mj_model.actuator(actuator_id)
             if self.config.with_physics:
+                transmission_type = actuator.trntype
+                assert transmission_type == mujoco.mjtTrn.mjTRN_JOINT, \
+                    f"Actuator transmission type {transmission_type} not supported."
+                joint_id = actuator.trnid[0]
+                if joint_id not in self._joint_builders:
+                    continue
                 actuator_name = actuator.name
                 if actuator_name == "":
                     actuator_name = "Actuator_" + str(actuator_id)
                 mujoco_actuator = UsdMujoco.MujocoActuator.Define(self.world_builder.stage,
                                                                           actuator_prim.GetPath().AppendChild(
                                                                               actuator_name))
-                transmission_type = actuator.trntype
-                assert transmission_type == mujoco.mjtTrn.mjTRN_JOINT, \
-                    f"Actuator transmission type {transmission_type} not supported."
-                joint_id = actuator.trnid[0]
-                assert joint_id in self._joint_builders, \
-                    f"Actuator joint id {joint_id} not found in joint builders."
                 joint_path = self._joint_builders[joint_id].joint.GetPath()
                 mujoco_actuator.CreateJointRel().SetTargets([joint_path])
 
