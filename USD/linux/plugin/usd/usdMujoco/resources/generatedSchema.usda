@@ -66,19 +66,19 @@ class MujocoMaterial "MujocoMaterial" (
     }
 )
 {
-    float mujoco:material:emission (
+    float mujoco:material:emission = 0 (
         customData = {
             string userDocBrief = "Emission in OpenGL has the RGBA format, however we only provide a scalar setting."
         }
         displayName = "Material Emission"
     )
-    color4f mujoco:material:rgba (
+    color4f mujoco:material:rgba = (1, 1, 1, 1) (
         customData = {
             string userDocBrief = "Color and transparency of the material."
         }
         displayName = "Material RGBA"
     )
-    float mujoco:material:specular (
+    float mujoco:material:specular = 0.5 (
         customData = {
             string userDocBrief = "Specularity in OpenGL has the RGBA format, however we only provide a scalar setting."
         }
@@ -139,7 +139,7 @@ class MujocoEqualityJoint "MujocoEqualityJoint" (
         }
         displayName = "Equality Joint2"
     )
-    float[] mujoco:equality:joint:polycoef (
+    float[] mujoco:equality:joint:polycoef = [0, 1, 0, 0, 0] (
         customData = {
             string userDocBrief = "Coefficients a0 .."
         }
@@ -165,7 +165,7 @@ class "MujocoBodyInertialAPI" (
         }
         displayName = "Mass"
     )
-    point3f mujoco:body:inertial:pos (
+    point3f mujoco:body:inertial:pos = (0, 0, 0) (
         customData = {
             string userDocBrief = "Position of the inertial frame."
         }
@@ -185,7 +185,7 @@ class "MujocoBodyAPI" (
     }
 )
 {
-    point3f mujoco:body:pos (
+    point3f mujoco:body:pos = (0, 0, 0) (
         customData = {
             string userDocBrief = "The 3D position (x, y, z) of the body frame, in the parent coordinate frame."
         }
@@ -196,45 +196,6 @@ class "MujocoBodyAPI" (
             string userDocBrief = "The quaternion (w, x, y, z) of the body frame, in the parent coordinate frame."
         }
         displayName = "Body Quaternion"
-    )
-}
-
-class "MujocoCompositeAPI" (
-    customData = {
-        string userDocBrief = "This element creates a composite."
-    }
-)
-{
-    vector3f mujoco:composite:count (
-        customData = {
-            string userDocBrief = "The element count in each dimension of the grid."
-        }
-        displayName = "Count"
-    )
-    vector3f mujoco:composite:offset3D (
-        customData = {
-            string userDocBrief = "The offset is expressed in the local coordinate frame of the parent body."
-        }
-        displayName = "Offset"
-    )
-    string mujoco:composite:prefix (
-        customData = {
-            string userDocBrief = "The prefix is needed when multiple composite objects are used in the same model, to avoid name conflicts."
-        }
-        displayName = "Prefix"
-    )
-    float mujoco:composite:spacing (
-        customData = {
-            string userDocBrief = "The spacing between the centers of the grid elements."
-        }
-        displayName = "Spacing"
-    )
-    uniform token mujoco:composite:type (
-        allowedTokens = ["particle", "grid", "cable", "rope", "loop", "cloth", "box", "cylinder", "ellipsoid"]
-        customData = {
-            string userDocBrief = "Type of the composite object."
-        }
-        displayName = "Type"
     )
 }
 
@@ -288,7 +249,7 @@ class "MujocoJointAPI" (
         }
         displayName = "Joint Limited"
     )
-    point3f mujoco:joint:pos (
+    point3f mujoco:joint:pos = (0, 0, 0) (
         customData = {
             string userDocBrief = "The 3D position (x, y, z) of the joint, specified in the frame of the body where the joint is defined."
         }
@@ -322,13 +283,13 @@ class MujocoActuator "MujocoActuator" (
         }
         displayName = "Actuator Limited"
     )
-    float2 mujoco:actuator:actrange (
+    float2 mujoco:actuator:actrange = (0, 0) (
         customData = {
             string userDocBrief = "Range for clamping the activation state."
         }
         displayName = "Actuator Range"
     )
-    float[] mujoco:actuator:biasprm (
+    float[] mujoco:actuator:biasprm = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0] (
         customData = {
             string userDocBrief = "Bias parameters."
         }
@@ -348,13 +309,13 @@ class MujocoActuator "MujocoActuator" (
         }
         displayName = "Control Limited"
     )
-    float2 mujoco:actuator:ctrlrange (
+    float2 mujoco:actuator:ctrlrange = (0, 0) (
         customData = {
             string userDocBrief = "Range for clamping the control input."
         }
         displayName = "Control Range"
     )
-    float[] mujoco:actuator:dynprm (
+    float[] mujoco:actuator:dynprm = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0] (
         customData = {
             string userDocBrief = "Activation dynamics parameters."
         }
@@ -374,13 +335,13 @@ class MujocoActuator "MujocoActuator" (
         }
         displayName = "Force Limited"
     )
-    float2 mujoco:actuator:forcerange (
+    float2 mujoco:actuator:forcerange = (0, 0) (
         customData = {
             string userDocBrief = "Range for clamping the force output."
         }
         displayName = "Force Range"
     )
-    float[] mujoco:actuator:gainprm (
+    float[] mujoco:actuator:gainprm = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0] (
         customData = {
             string userDocBrief = "Gain parameters."
         }
@@ -398,6 +359,12 @@ class MujocoActuator "MujocoActuator" (
             string userDocBrief = "The joint to which this actuator is applied."
         }
         displayName = "Joint"
+    )
+    rel mujoco:actuator:tendon (
+        customData = {
+            string userDocBrief = "The tendon to which this actuator is applied."
+        }
+        displayName = "Tendon"
     )
 }
 
@@ -419,7 +386,7 @@ class "MujocoGeomAPI" (
         }
         displayName = "Geom Mesh"
     )
-    point3f mujoco:geom:pos (
+    point3f mujoco:geom:pos = (0, 0, 0) (
         customData = {
             string userDocBrief = "The 3D position (x, y, z) of the geom, specified in the frame of the body where the geom is defined."
         }
@@ -443,6 +410,54 @@ class "MujocoGeomAPI" (
             string userDocBrief = "Type of geometric shape."
         }
         displayName = "Geom Type"
+    )
+}
+
+class MujocoTendon "MujocoTendon" (
+    customData = {
+        string userDocBrief = "This is a grouping element for tendons."
+    }
+)
+{
+}
+
+class MujocoTendonFixed "MujocoTendonFixed" (
+    customData = {
+        string userDocBrief = "This element creates an abstract tendon whose length is defined as a linear combination of joint positions."
+    }
+)
+{
+    float mujoco:tendon:fixed:damping = 0 (
+        customData = {
+            string userDocBrief = "Damping applied to all degrees of freedom created by this tendon."
+        }
+        displayName = "Damping"
+    )
+    float mujoco:tendon:fixed:frictionloss = 0 (
+        customData = {
+            string userDocBrief = "Friction loss due to dry friction."
+        }
+        displayName = "Friction Loss"
+    )
+}
+
+class MujocoTendonFixedJoint "MujocoTendonFixedJoint" (
+    customData = {
+        string userDocBrief = "This element adds a joint to the computation of the fixed tendon length."
+    }
+)
+{
+    float mujoco:tendon:fixed:joint:coef = 0 (
+        customData = {
+            string userDocBrief = "Scalar coefficient multiplying the position or angle of the specified joint."
+        }
+        displayName = "Coefficient"
+    )
+    rel mujoco:tendon:fixed:joint:joint (
+        customData = {
+            string userDocBrief = "Name of the joint to be added to the fixed tendon."
+        }
+        displayName = "Joint"
     )
 }
 

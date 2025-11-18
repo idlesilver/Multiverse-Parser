@@ -53,28 +53,6 @@ def get_body_name(mj_body) -> str:
     return mj_body.name if mj_body.name is not None else "Body_" + str(mj_body.id)
 
 
-def get_bodies_with_composite(xml_file_path: str) -> Dict[str, List[ET.Element]]:
-    bodies_with_composite = {}
-    tree = ET.parse(xml_file_path)
-    root = tree.getroot()
-    for include in root.iter("include"):
-        include_file_path = include.attrib["file"]
-        if os.path.relpath(include_file_path):
-            include_file_path = os.path.join(os.path.dirname(xml_file_path), include_file_path)
-        bodies_with_composite.update(get_bodies_with_composite(include_file_path))
-
-    for body in root.iter("body"):
-        body_name = body.attrib["name"]
-        for child in body:
-            if child.tag == "composite":
-                if body_name in bodies_with_composite:
-                    bodies_with_composite[body_name].append(child)
-                else:
-                    bodies_with_composite[body_name] = [child]
-
-    return bodies_with_composite
-
-
 class MjcfImporter(Factory):
     mj_model: mujoco.MjModel
     _geom_type_map: Dict = {
@@ -118,7 +96,6 @@ class MjcfImporter(Factory):
             default_rgba=default_rgba if default_rgba is not None else numpy.array([0.9, 0.9, 0.9, 1.0]),
             inertia_source=inertia_source
         ))
-        self._bodies_with_composite = get_bodies_with_composite(self.source_file_path)
 
     def import_model(self, save_file_path: Optional[str] = None) -> str:
         self._world_builder = WorldBuilder(self.tmp_usd_file_path)
@@ -145,16 +122,11 @@ class MjcfImporter(Factory):
             mj_body = self.mj_model.body(body_id)
 
             parent_body_id = mj_body.parentid[0]
-            parent_body = self.mj_model.body(parent_body_id)
-            parent_body_name = get_body_name(parent_body)
-            if parent_body_name in self.bodies_with_composite:
-                self._import_point(parent_body_name=parent_body_name, mj_body=mj_body)
-            else:
-                body_builder = self._import_body(mj_body=mj_body)
-                self._import_geoms(mj_body=mj_body, body_builder=body_builder)
-                if self._config.with_physics:
-                    body_dict[mj_body] = body_builder
-                    self._import_joints(mj_body=mj_body, body_builder=body_builder)
+            body_builder = self._import_body(mj_body=mj_body)
+            self._import_geoms(mj_body=mj_body, body_builder=body_builder)
+            if self._config.with_physics:
+                body_dict[mj_body] = body_builder
+                self._import_joints(mj_body=mj_body, body_builder=body_builder)
 
         self.execute_cmds()
 
@@ -162,10 +134,9 @@ class MjcfImporter(Factory):
             for mj_body, body_builder in body_dict.items():
                 self._import_inertial(mj_body=mj_body, body_builder=body_builder)
 
-        for body_builder in self.world_builder.body_builders:
-            self._import_points(body_builder=body_builder)
-
         self._import_equality()
+
+        self._import_tendon()
 
         self._import_actuator()
 
@@ -226,51 +197,6 @@ class MjcfImporter(Factory):
         mujoco_body_api.CreateQuatAttr(Gf.Quatf(body_quat[3], *body_quat[:3]))
 
         return body_builder
-
-    def _import_point(self, parent_body_name, mj_body):
-        parent_body_id = mj_body.parentid
-        parent_body_builder = self.world_builder.get_body_builder(body_name=parent_body_name)
-        point_id = mj_body.id
-        geom_id = mj_body.geomadr[0]
-        geom = self.mj_model.geom(geom_id)
-        point_width = 2 * geom.size[0]
-        points_rgba = geom.rgba
-        point_pos = mj_body.pos
-        point_property = PointProperty(point_id=point_id,
-                                       point_pos=point_pos,
-                                       point_width=point_width)
-        point_adr = parent_body_id
-        for points_element in self.bodies_with_composite[parent_body_name]:
-            points_count = [int(x) for x in points_element.attrib["count"].split(" ") if x != ""]
-            points_num = numpy.prod(points_count)
-            if point_adr < point_id <= point_adr + points_num:
-                points_prefix = points_element.attrib["prefix"] if "prefix" in points_element.attrib else ""
-                points_type = points_element.attrib["type"]
-                points_name = f"{parent_body_name}_{points_prefix}_{points_type}s"
-                parent_body_builder.add_point(points_name=points_name,
-                                              point_property=point_property,
-                                              points_rgba=points_rgba)
-            point_adr += points_num
-
-    def _import_points(self, body_builder: BodyBuilder):
-        parent_body_name = body_builder.xform.GetPrim().GetName()
-        if parent_body_name in self.bodies_with_composite:
-            for points_builder, points_element in zip(body_builder.points_builders,
-                                                      self.bodies_with_composite[parent_body_name]):
-                points_builder.build()
-
-                points_type = points_element.attrib["type"]
-                points_count = [int(x) for x in points_element.attrib["count"].split(" ") if x != ""]
-                points_spacing = float(points_element.attrib["spacing"])
-                points_offset = [float(x) for x in points_element.attrib["offset"].split(" ") if x != ""]
-                points_prefix = points_element.attrib["prefix"] if "prefix" in points_element.attrib else ""
-
-                mujoco_composite_api = UsdMujoco.MujocoCompositeAPI.Apply(points_builder.points.GetPrim())
-                mujoco_composite_api.CreateTypeAttr(points_type)
-                mujoco_composite_api.CreateCountAttr(Gf.Vec3i(*points_count))
-                mujoco_composite_api.CreateSpacingAttr(points_spacing)
-                mujoco_composite_api.CreateOffsetAttr(Gf.Vec3f(*points_offset))
-                mujoco_composite_api.CreatePrefixAttr(points_prefix)
 
     def _import_joints(self, mj_body, body_builder: BodyBuilder):
         for joint_id in range(mj_body.jntadr[0], mj_body.jntadr[0] + mj_body.jntnum[0]):
@@ -597,16 +523,46 @@ class MjcfImporter(Factory):
                 mujoco_equality_joint.CreateJoint2Rel().SetTargets([joint2_path])
                 mujoco_equality_joint.CreatePolycoefAttr(equality.data[:5])
 
+    def _import_tendon(self):
+        tendon_prim = UsdMujoco.MujocoTendon.Define(self.world_builder.stage, "/mujoco/tendon").GetPrim()
+        for tendon_id in range(self.mj_model.ntendon):
+            wrap_adr = self.mj_model.tendon_adr[tendon_id]
+            wrap_type = self.mj_model.wrap_type[wrap_adr]
+            if wrap_type != mujoco.mjtWrap.mjWRAP_JOINT:
+                continue
+            tendon = self.mj_model.tendon(tendon_id)
+            tendon_fixed_prim = UsdMujoco.MujocoTendonFixed.Define(self.world_builder.stage, tendon_prim.GetPath().AppendChild(tendon.name)).GetPrim()
+            wrap_num = self.mj_model.tendon_num[tendon_id]
+            for wrap_id in range(wrap_adr, wrap_adr + wrap_num):
+                joint_id = self.mj_model.wrap_objid[wrap_id]
+                if joint_id not in self._joint_builders:
+                    continue
+                tendon_fixed_joint = UsdMujoco.MujocoTendonFixedJoint.Define(self.world_builder.stage, tendon_fixed_prim.GetPath().AppendChild(f"Fixed_{wrap_id}"))
+                tendon_joint_path = self._joint_builders[joint_id].joint.GetPath()
+                tendon_joint_coef = self.mj_model.wrap_prm[wrap_id]
+                tendon_fixed_joint.CreateJointRel().SetTargets([tendon_joint_path])
+                tendon_fixed_joint.CreateCoefAttr(tendon_joint_coef)
+
     def _import_actuator(self):
         actuator_prim = UsdMujoco.MujocoActuator.Define(self.world_builder.stage, "/mujoco/actuator")
         for actuator_id in range(self.mj_model.nu):
             actuator = self.mj_model.actuator(actuator_id)
             if self.config.with_physics:
                 transmission_type = actuator.trntype
-                assert transmission_type == mujoco.mjtTrn.mjTRN_JOINT, \
-                    f"Actuator transmission type {transmission_type} not supported."
-                joint_id = actuator.trnid[0]
-                if joint_id not in self._joint_builders:
+                if transmission_type == mujoco.mjtTrn.mjTRN_JOINT:
+                    joint_id = actuator.trnid[0]
+                    if joint_id not in self._joint_builders:
+                        continue
+                    obj_prim = self._joint_builders[joint_id].joint.GetPrim()
+                elif transmission_type == mujoco.mjtTrn.mjTRN_TENDON:
+                    tendon_id = actuator.trnid[0]
+                    tendon_name = self.mj_model.tendon(tendon_id).name
+                    tendon_prim_path = "/mujoco/tendon/" + tendon_name
+                    obj_prim = self.world_builder.stage.GetPrimAtPath(tendon_prim_path)
+                    if not obj_prim.IsValid():
+                        continue
+                else:
+                    logging.warning(f"Actuator transmission type {transmission_type} not supported.")
                     continue
                 actuator_name = actuator.name
                 if actuator_name == "":
@@ -614,8 +570,12 @@ class MjcfImporter(Factory):
                 mujoco_actuator = UsdMujoco.MujocoActuator.Define(self.world_builder.stage,
                                                                           actuator_prim.GetPath().AppendChild(
                                                                               actuator_name))
-                joint_path = self._joint_builders[joint_id].joint.GetPath()
-                mujoco_actuator.CreateJointRel().SetTargets([joint_path])
+                if transmission_type == mujoco.mjtTrn.mjTRN_JOINT:
+                    mujoco_actuator.CreateJointRel().SetTargets([obj_prim.GetPath()])
+                elif transmission_type == mujoco.mjtTrn.mjTRN_TENDON:
+                    mujoco_actuator.CreateTendonRel().SetTargets([obj_prim.GetPath()])
+                else:
+                    raise ValueError(f"Actuator transmission type {transmission_type} not supported.")
 
                 mujoco_actuator.CreateActlimitedAttr(limited_dict[actuator.actlimited[0]])
                 mujoco_actuator.CreateActrangeAttr(Gf.Vec2f(*actuator.actrange))
@@ -657,7 +617,3 @@ class MjcfImporter(Factory):
     @property
     def mujoco_textures_prim(self) -> Usd.Prim:
         return self.mujoco_asset_prim.GetChild("textures")
-
-    @property
-    def bodies_with_composite(self) -> Dict[str, List[ET.Element]]:
-        return self._bodies_with_composite

@@ -73,16 +73,6 @@ def get_mujoco_body_api(xform_prim: Usd.Prim,  # type: ignore
     return mujoco_body_api
 
 
-def get_mujoco_composite_api(points_builder: PointsBuilder) -> UsdMujoco.MujocoCompositeAPI:  # type: ignore
-    points = points_builder.points
-    points_prim = points.GetPrim()
-    if points_prim.HasAPI(UsdMujoco.MujocoCompositeAPI):  # type: ignore
-        return UsdMujoco.MujocoCompositeAPI(points_prim)  # type: ignore
-    else:
-        logging.warning(f"Composite {points_prim.GetName()} does not have MujocoCompositeAPI.")
-        return None
-
-
 def get_mujoco_joint_api(joint_builder: JointBuilder) -> UsdMujoco.MujocoJointAPI:  # type: ignore
     joint = joint_builder.joint
     joint_prim = joint.GetPrim()
@@ -325,6 +315,8 @@ class MjcfExporter:
             body_builders = reduces_body_builders
 
         self._export_equality()
+
+        self._export_tendon()
 
         self._export_actuator()
 
@@ -866,6 +858,33 @@ class MjcfExporter:
                 equality_joint.set("joint2", joint2_name)
                 equality_joint.set("polycoef", " ".join(map(str, poly_coef)))
 
+    def _export_tendon(self):
+        stage = self.factory.world_builder.stage
+
+        tendon_prim = stage.GetPrimAtPath("/mujoco/tendon")
+        if not tendon_prim.IsValid():
+            return
+        tendon = ET.SubElement(self.root, "tendon")
+        for child_prim in tendon_prim.GetChildren():
+            if not child_prim.IsA(UsdMujoco.MujocoTendonFixed):  # type: ignore
+                continue
+            tendon_fixed = ET.SubElement(tendon, "fixed")
+            tendon_fixed.set("name", child_prim.GetName())
+            for child_child_prim in child_prim.GetChildren():
+                if not child_child_prim.IsA(UsdMujoco.MujocoTendonFixedJoint):  # type: ignore
+                    continue
+                tendon_fixed_joint = UsdMujoco.MujocoTendonFixedJoint(child_child_prim)  # type: ignore
+                joint_path = tendon_fixed_joint.GetJointRel().GetTargets()[0]
+                joint_prim = stage.GetPrimAtPath(joint_path)
+                if not joint_prim.IsA(UsdPhysics.Joint):  # type: ignore
+                    continue
+                joint_name = joint_prim.GetName()
+                coef = tendon_fixed_joint.GetCoefAttr().Get()
+
+                joint = ET.SubElement(tendon_fixed, "joint")
+                joint.set("joint", joint_name)
+                joint.set("coef", str(coef))
+
     def _export_actuator(self):
         stage = self.factory.world_builder.stage
 
@@ -876,10 +895,16 @@ class MjcfExporter:
         for child_prim in actuator_prim.GetChildren():
             if child_prim.IsA(UsdMujoco.MujocoActuator):  # type: ignore
                 mujoco_actuator = UsdMujoco.MujocoActuator(child_prim)  # type: ignore
-                joint_path = mujoco_actuator.GetJointRel().GetTargets()[0]
-                assert stage.GetPrimAtPath(joint_path).IsA(UsdPhysics.Joint), \
-                    f"Actuator {child_prim.GetName()} joint does not exist."
-                joint_name = joint_path.name
+                if len(mujoco_actuator.GetJointRel().GetTargets()) > 0:
+                    joint_path = mujoco_actuator.GetJointRel().GetTargets()[0]
+                    obj_type = "joint"
+                    obj_name = joint_path.name
+                elif len(mujoco_actuator.GetTendonRel().GetTargets()) > 0:
+                    tendon_path = mujoco_actuator.GetTendonRel().GetTargets()[0]
+                    obj_type = "tendon"
+                    obj_name = tendon_path.name
+                else:
+                    raise ValueError(f"Actuator {child_prim.GetName()} has neither joint nor tendon.")
                 actlimited = mujoco_actuator.GetActlimitedAttr().Get()
                 actrange = mujoco_actuator.GetActrangeAttr().Get()
                 ctrllimited = mujoco_actuator.GetCtrllimitedAttr().Get()
@@ -895,7 +920,7 @@ class MjcfExporter:
 
                 general = ET.SubElement(actuator, "general")
                 general.set("name", child_prim.GetName())
-                general.set("joint", joint_name)
+                general.set(obj_type, obj_name)
                 general.set("actlimited", actlimited)
                 general.set("actrange", " ".join(map(str, actrange)))
                 general.set("ctrllimited", ctrllimited)

@@ -21,12 +21,14 @@ pxr_plugin(${PXR_PACKAGE}
         mujocoTexture
         mujocoBodyAPI
         mujocoBodyInertialAPI
-        mujocoCompositeAPI
         mujocoJointAPI
         mujocoGeomAPI
         mujocoActuator
         mujocoEquality
         mujocoEqualityJoint
+        mujocoTendon
+        mujocoTendonFixed
+        mujocoTendonFixedJoint
         tokens
 
     PYTHON_CPPFILES
@@ -45,12 +47,14 @@ pxr_plugin(${PXR_PACKAGE}
         wrapMujocoTexture.cpp
         wrapMujocoBodyAPI.cpp
         wrapMujocoBodyInertialAPI.cpp
-        wrapMujocoCompositeAPI.cpp
         wrapMujocoJointAPI.cpp
         wrapMujocoGeomAPI.cpp
         wrapMujocoActuator.cpp
         wrapMujocoEquality.cpp
         wrapMujocoEqualityJoint.cpp
+        wrapMujocoTendon.cpp
+        wrapMujocoTendonFixed.cpp
+        wrapMujocoTendonFixedJoint.cpp
 
     RESOURCE_FILES
         generatedSchema.usda
