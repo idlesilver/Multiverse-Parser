@@ -433,8 +433,8 @@ class MjcfToUrdfTestCase(UrdfExporterTestCase):
                                        fixed_base=False, with_physics=False, root_name="anymal_c")
 
     def test_mjcf_to_urdf_panda(self):
-        input_mjcf_path = os.path.join(self.resource_path, "input", "mujoco_menagerie", "franka_emika_panda",
-                                       "panda.xml")
+        input_mjcf_path = os.path.join(self.resource_path, "input", "mujoco_menagerie", "franka_fr3",
+                                       "fr3.xml")
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
                                        fixed_base=False, with_physics=True)
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
