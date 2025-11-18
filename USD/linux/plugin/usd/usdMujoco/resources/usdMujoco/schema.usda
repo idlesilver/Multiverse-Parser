@@ -395,7 +395,7 @@ class "MujocoJointAPI" (
         doc = """This attribute specifies if the joint has limits. It interacts with the range attribute. If this attribute is “false”, joint limits are disabled. If this attribute is “true”, joint limits are enabled."""
     )
 
-    float2 mujoco:joint:actuatorfrcrange (
+    float2 mujoco:joint:actuatorfrcrange = (0.0, 0.0) (
         customData = {
             string apiName = "actuatorfrcrange"
         }

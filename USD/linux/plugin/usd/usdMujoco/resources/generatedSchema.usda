@@ -251,7 +251,7 @@ class "MujocoJointAPI" (
         }
         displayName = "Joint Actuator Force Limited"
     )
-    float2 mujoco:joint:actuatorfrcrange (
+    float2 mujoco:joint:actuatorfrcrange = (0, 0) (
         customData = {
             string userDocBrief = "Range for clamping total actuator forces acting on this joint."
         }
