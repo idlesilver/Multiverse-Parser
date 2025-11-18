@@ -870,6 +870,8 @@ class MjcfExporter:
         stage = self.factory.world_builder.stage
 
         actuator_prim = stage.GetPrimAtPath("/mujoco/actuator")
+        if not actuator_prim.IsValid():
+            return
         actuator = ET.SubElement(self.root, "actuator")
         for child_prim in actuator_prim.GetChildren():
             if child_prim.IsA(UsdMujoco.MujocoActuator):  # type: ignore
