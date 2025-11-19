@@ -296,7 +296,7 @@ class MjcfImporter(Factory):
                                  mj_geom.quat[0]])
 
         if geom_is_visible and self._config.with_visual or geom_is_collidable and self._config.with_collision:
-            geom_name = mj_geom.name if mj_geom.name != "" else "Geom_" + str(geom_id)
+            geom_name = "Geom_" + str(geom_id)
             mat_id = mj_geom.matid[0]
             if mat_id == -1:
                 geom_rgba = mj_geom.rgba
