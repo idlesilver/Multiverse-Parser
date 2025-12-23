@@ -7,13 +7,16 @@ cd /d "%~dp0"
 
 set "EXT_DIR=%CD%\src\multiverse_parser\external"
 if not exist "%EXT_DIR%" (
+  for /d /r . %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d"
+  del /s /q *.pyc >nul 2>&1
+
   set "BLENDER_DIR=%EXT_DIR%\blender\windows"
   mkdir "!BLENDER_DIR%!
   xcopy /e /i /y ext\blender\* "!BLENDER_DIR!\"
 
-  set "USD_DIR=%EXT_DIR%\USD\windows"
+  set "USD_DIR=%EXT_DIR%\USD"
   mkdir "!USD_DIR!"
-  xcopy /e /i /y USD\windows "!USD_DIR!\windows"
+  xcopy /e /i /y USD\windows "!USD_DIR!"
 )
 @REM python -m build
 

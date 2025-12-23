@@ -7,11 +7,15 @@ cd "$(dirname "$0")" || exit
 EXT_DIR="src/multiverse_parser/external"
 
 if [ ! -d "$EXT_DIR" ]; then
+    # remove python cache directories and compiled python files safely
+    find . -type d -name "__pycache__" -prune -exec rm -rf {} +
+    find . -type f -name "*.pyc" -delete
+
     BLENDER_DIR="$EXT_DIR"/blender/linux
     mkdir -p "$BLENDER_DIR"
     cp -r ext/blender/* "$BLENDER_DIR"/
 
-    USD_DIR="$EXT_DIR"/USD/linux
+    USD_DIR="$EXT_DIR"/USD
     mkdir -p "$USD_DIR"
     cp -r USD/linux "$USD_DIR"
 fi

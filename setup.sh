@@ -27,7 +27,7 @@ BLENDER_DIR=$EXT_DIR/blender
 if [ ! -d "$BLENDER_DIR" ]; then
     mkdir -p "$BLENDER_DIR"
     BLENDER_VERSION=4.5
-    BLENDER_TAR_FILE=blender-$BLENDER_VERSION.0-linux-x64.tar.xz
+    BLENDER_TAR_FILE=blender-$BLENDER_VERSION.4-linux-x64.tar.xz
     curl -L -o "$EXT_DIR"/$BLENDER_TAR_FILE https://download.blender.org/release/Blender$BLENDER_VERSION/$BLENDER_TAR_FILE
     tar xf "$EXT_DIR"/$BLENDER_TAR_FILE -C "$BLENDER_DIR" --strip-components=1
     rm -f "$EXT_DIR"/$BLENDER_TAR_FILE
@@ -43,15 +43,17 @@ if [ "$USD_ENABLED" = true ]; then
     CMAKE_DIR=$EXT_DIR/CMake
     if [ ! -d "$CMAKE_DIR" ]; then
         mkdir -p "$CMAKE_DIR"
-        CMAKE_TAR_FILE=cmake-4.0.1-linux-x86_64.tar.gz
-        curl -L -o "$EXT_DIR"/$CMAKE_TAR_FILE https://github.com/Kitware/CMake/releases/download/v4.0.1/$CMAKE_TAR_FILE
+        CMAKE_TAR_FILE=cmake-4.1.2-linux-x86_64.tar.gz
+        curl -L -o "$EXT_DIR"/$CMAKE_TAR_FILE https://github.com/Kitware/CMake/releases/download/v4.1.2/$CMAKE_TAR_FILE
         tar xf "$EXT_DIR"/$CMAKE_TAR_FILE -C "$CMAKE_DIR" --strip-components=1
         rm -f "$EXT_DIR"/$CMAKE_TAR_FILE
     fi
     
     USD_SRC_DIR=$EXT_DIR/OpenUSD
     if [ ! -d "$USD_SRC_DIR" ]; then
-        git clone https://github.com/PixarAnimationStudios/OpenUSD.git --depth 1 --branch v25.02 "$USD_SRC_DIR"
+        git clone https://github.com/PixarAnimationStudios/OpenUSD.git --depth 1 --branch v25.11 "$USD_SRC_DIR"
+        GCC_CLANG_SHARED_DEFAULTS_CMAKE_PATH=$USD_SRC_DIR/cmake/defaults/gccclangshareddefaults.cmake
+        sed -i 's/-Wmismatched-tags//g' "$GCC_CLANG_SHARED_DEFAULTS_CMAKE_PATH"
     fi
     
     BUILD_DIR=$PWD/build
@@ -77,7 +79,6 @@ if [ "$USD_ENABLED" = true ]; then
         --no-openimageio \
         --no-opencolorio \
         --no-alembic \
-        --no-hdf5 \
         --no-draco \
         --no-materialx \
         --no-onetbb \

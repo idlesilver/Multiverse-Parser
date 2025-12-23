@@ -17,11 +17,15 @@ TF_WRAP_MODULE
     TF_WRAP(UsdMujocoMujocoBodyAPI);
     TF_WRAP(UsdMujocoMujocoBodyInertialAPI);
 
-    TF_WRAP(UsdMujocoMujocoCompositeAPI);
-
     TF_WRAP(UsdMujocoMujocoJointAPI);
     TF_WRAP(UsdMujocoMujocoGeomAPI);
 
+    TF_WRAP(UsdMujocoMujocoActuator);
+
     TF_WRAP(UsdMujocoMujocoEquality);
     TF_WRAP(UsdMujocoMujocoEqualityJoint);
+
+    TF_WRAP(UsdMujocoMujocoTendon);
+    TF_WRAP(UsdMujocoMujocoTendonFixed);
+    TF_WRAP(UsdMujocoMujocoTendonFixedJoint);
 }

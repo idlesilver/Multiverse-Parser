@@ -48,7 +48,6 @@ else
     --no-openimageio \
     --no-opencolorio \
     --no-alembic \
-    --no-hdf5 \
     --no-draco \
     --no-materialx \
     --no-onetbb \

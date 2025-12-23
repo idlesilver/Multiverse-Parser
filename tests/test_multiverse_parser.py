@@ -436,9 +436,9 @@ class MjcfToUrdfTestCase(UrdfExporterTestCase):
         input_mjcf_path = os.path.join(self.resource_path, "input", "mujoco_menagerie", "franka_emika_panda",
                                        "panda.xml")
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
-                                       fixed_base=False, with_physics=True)
+                                       fixed_base=True, with_physics=True)
         self.validate_visual_collision(MjcfImporter, UrdfExporter, input_mjcf_path,
-                                       fixed_base=False, with_physics=False)
+                                       fixed_base=True, with_physics=False)
 
 
 class UrdfToUrdfTestCase(UrdfExporterTestCase):
