@@ -111,7 +111,9 @@ def get_urdf_joint_api(joint_builder: JointBuilder) -> UsdUrdf.UrdfJointAPI:  # 
     return UsdUrdf.UrdfJointAPI(joint_prim) if joint_prim.HasAPI(UsdUrdf.UrdfJointAPI) else None  # type: ignore
 
 
-def get_mujoco_geom_api(geom_builder: GeomBuilder, merge_texture: bool) -> UsdMujoco.MujocoGeomAPI:  # type: ignore
+def get_mujoco_geom_api(geom_builder: GeomBuilder,
+                        merge_texture: bool,
+                        merged_texture_map: Optional[dict] = None) -> UsdMujoco.MujocoGeomAPI:  # type: ignore
     gprim = geom_builder.gprim
     gprim_prim = gprim.GetPrim()
     if gprim_prim.HasAPI(UsdMujoco.MujocoGeomAPI):  # type: ignore
@@ -194,53 +196,81 @@ def get_mujoco_geom_api(geom_builder: GeomBuilder, merge_texture: bool) -> UsdMu
             mujoco_geom_api.CreateMeshRel().SetTargets([mujoco_mesh_path])
 
             if geom_builder.is_visible:
-                if gprim_prim.HasAPI(UsdShade.MaterialBindingAPI):  # type: ignore
-                    material_binding_api = UsdShade.MaterialBindingAPI(gprim_prim)  # type: ignore
-                    material_path = material_binding_api.GetDirectBindingRel().GetTargets()[0]
-                    material_name = material_path.name
-                    mujoco_material_path = mujoco_materials_prim.GetPath().AppendChild(material_name)
-                    if not stage.GetPrimAtPath(mujoco_material_path).IsA(UsdMujoco.MujocoMaterial):  # type: ignore
-                        raise ValueError(f"Material {material_name} does not exist.")
-                    mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
-                else:
-                    texture_name = f"T_{gprim_prim.GetName().replace('SM_', '')}"
+                merged_texture_name = None
+                merged_texture_applied = False
+                if merged_texture_map is not None:
+                    merged_texture_name = merged_texture_map.get(str(gprim_prim.GetPath()))
+                if merged_texture_name is not None:
                     texture_file_path = os.path.join(os.path.dirname(gprim_prim.GetStage().GetRootLayer().realPath),
                                                      "tmp",
                                                      "textures",
-                                                     f"{texture_name}.png")
+                                                     f"{merged_texture_name}.png")
                     if os.path.exists(os.path.normpath(texture_file_path)):
-                        child_geom_subset_prims = [child_prim for child_prim in gprim_prim.GetChildren() if
-                                                   child_prim.IsA(UsdGeom.Subset) and child_prim.HasAPI(  # type: ignore
-                                                       UsdShade.MaterialBindingAPI)]  # type: ignore
-
-                        if merge_texture:
-                            logging.warning(
-                                f"Geom {gprim_prim.GetName()} has no material, but has {len(child_geom_subset_prims)} subsets, will export the merged material.")
-                            material_name = f"M_{gprim_prim.GetName()}"
-                            mujoco_material_path = mujoco_materials_prim.GetPath().AppendChild(material_name)
+                        material_name = f"M_{gprim_prim.GetName()}_merged"
+                        mujoco_material_path = mujoco_materials_prim.GetPath().AppendChild(material_name)
+                        material_prim = stage.GetPrimAtPath(mujoco_material_path)
+                        if not material_prim.IsValid() or not material_prim.IsA(UsdMujoco.MujocoMaterial):  # type: ignore
                             mujoco_material = UsdMujoco.MujocoMaterial.Define(stage,  # type: ignore
                                                                               mujoco_material_path)
-
-                            mujoco_texture_path = mujoco_textures_prim.GetPath().AppendChild(texture_name)
+                            mujoco_texture_path = mujoco_textures_prim.GetPath().AppendChild(merged_texture_name)
                             mujoco_material.CreateTextureRel().SetTargets([mujoco_texture_path])
                             mujoco_texture = UsdMujoco.MujocoTexture.Define(stage, mujoco_texture_path)  # type: ignore
                             mujoco_texture.CreateTypeAttr("2d")
-                            mujoco_texture.CreateFileAttr(f"{texture_name}.png")
+                            mujoco_texture.CreateFileAttr(f"{merged_texture_name}.png")
+                        mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
+                        merged_texture_applied = True
+                    else:
+                        logging.warning(f"Merged texture {texture_file_path} does not exist, skipping.")
+                if not merged_texture_applied:
+                    if gprim_prim.HasAPI(UsdShade.MaterialBindingAPI):  # type: ignore
+                        material_binding_api = UsdShade.MaterialBindingAPI(gprim_prim)  # type: ignore
+                        material_path = material_binding_api.GetDirectBindingRel().GetTargets()[0]
+                        material_name = material_path.name
+                        mujoco_material_path = mujoco_materials_prim.GetPath().AppendChild(material_name)
+                        material_prim = stage.GetPrimAtPath(mujoco_material_path)
+                        if not material_prim.IsValid() or not material_prim.IsA(UsdMujoco.MujocoMaterial):  # type: ignore
+                            raise ValueError(f"Material {material_name} does not exist.")
+                        mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
+                    else:
+                        texture_name = f"T_{gprim_prim.GetName().replace('SM_', '')}"
+                        texture_file_path = os.path.join(os.path.dirname(gprim_prim.GetStage().GetRootLayer().realPath),
+                                                         "tmp",
+                                                         "textures",
+                                                         f"{texture_name}.png")
+                        if os.path.exists(os.path.normpath(texture_file_path)):
+                            child_geom_subset_prims = [child_prim for child_prim in gprim_prim.GetChildren() if
+                                                       child_prim.IsA(UsdGeom.Subset) and child_prim.HasAPI(  # type: ignore
+                                                           UsdShade.MaterialBindingAPI)]  # type: ignore
 
-                            mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
-                        else:
-                            logging.warning(
-                                f"Geom {gprim_prim.GetName()} has no material, but has {len(child_geom_subset_prims)} subsets, will only export the first subset.")
-                            for geom_subset_prim in child_geom_subset_prims:
-                                material_binding_api = UsdShade.MaterialBindingAPI(geom_subset_prim)  # type: ignore
-                                material_path = material_binding_api.GetDirectBindingRel().GetTargets()[0]
-                                material_name = material_path.name
-                                mujoco_material_path = mujoco_asset_prim.GetPath().AppendChild("materials").AppendChild(
-                                    material_name)
-                                if not stage.GetPrimAtPath(mujoco_material_path).IsA(UsdMujoco.MujocoMaterial):  # type: ignore
-                                    raise ValueError(f"Material {material_name} does not exist.")
+                            if merge_texture:
+                                logging.warning(
+                                    f"Geom {gprim_prim.GetName()} has no material, but has {len(child_geom_subset_prims)} subsets, will export the merged material.")
+                                material_name = f"M_{gprim_prim.GetName()}"
+                                mujoco_material_path = mujoco_materials_prim.GetPath().AppendChild(material_name)
+                                mujoco_material = UsdMujoco.MujocoMaterial.Define(stage,  # type: ignore
+                                                                                  mujoco_material_path)
+
+                                mujoco_texture_path = mujoco_textures_prim.GetPath().AppendChild(texture_name)
+                                mujoco_material.CreateTextureRel().SetTargets([mujoco_texture_path])
+                                mujoco_texture = UsdMujoco.MujocoTexture.Define(stage, mujoco_texture_path)  # type: ignore
+                                mujoco_texture.CreateTypeAttr("2d")
+                                mujoco_texture.CreateFileAttr(f"{texture_name}.png")
+
                                 mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
-                                break
+                            else:
+                                logging.warning(
+                                    f"Geom {gprim_prim.GetName()} has no material, but has {len(child_geom_subset_prims)} subsets, will only export the first subset.")
+                                for geom_subset_prim in child_geom_subset_prims:
+                                    material_binding_api = UsdShade.MaterialBindingAPI(geom_subset_prim)  # type: ignore
+                                    material_path = material_binding_api.GetDirectBindingRel().GetTargets()[0]
+                                    material_name = material_path.name
+                                    mujoco_material_path = mujoco_asset_prim.GetPath().AppendChild("materials").AppendChild(
+                                        material_name)
+                                    material_prim = stage.GetPrimAtPath(mujoco_material_path)
+                                    if not material_prim.IsValid() or not material_prim.IsA(UsdMujoco.MujocoMaterial):  # type: ignore
+                                        raise ValueError(f"Material {material_name} does not exist.")
+                                    mujoco_geom_api.CreateMaterialRel().SetTargets([mujoco_material_path])
+                                    break
 
     return mujoco_geom_api
 
@@ -272,6 +302,7 @@ class MjcfExporter:
         self._root = ET.Element("mujoco")
         self._body_dict = {}
         self._merge_textures = merge_textures
+        self._merged_texture_map = {}
 
     def build(self) -> None:
         self._build_config()
@@ -580,6 +611,7 @@ class MjcfExporter:
                             if self._merge_textures:
                                 texture_name = f"T_{mesh_prim.GetName().replace('SM_', '')}.png"
                                 texture_path = os.path.join(self.factory.tmp_texture_dir_path, texture_name)
+                                self._merged_texture_map[str(prim.GetPath())] = os.path.splitext(texture_name)[0]
                                 mesh_file_dir = os.path.dirname(mesh_file_path)
                                 mesh_file_name = os.path.splitext(os.path.basename(mesh_file_path))[0]
                                 output_mesh_file_path = os.path.join(mesh_file_dir, f"{mesh_file_name}.obj")
@@ -712,7 +744,9 @@ class MjcfExporter:
             self._build_composite(points_builder=points_builder, body=body)
 
     def _build_geom(self, geom_builder: GeomBuilder, body: ET.Element) -> None:
-        mujoco_geom_api = get_mujoco_geom_api(geom_builder=geom_builder, merge_texture=self._merge_textures)
+        mujoco_geom_api = get_mujoco_geom_api(geom_builder=geom_builder,
+                                              merge_texture=self._merge_textures,
+                                              merged_texture_map=self._merged_texture_map)
 
         gprim_prim = geom_builder.gprim.GetPrim()
         geom_name = gprim_prim.GetName()
@@ -858,8 +892,10 @@ class MjcfExporter:
                 equality_joint_prim = UsdMujoco.MujocoEqualityJoint(child_prim)  # type: ignore
                 joint1_path = equality_joint_prim.GetJoint1Rel().GetTargets()[0]
                 joint2_path = equality_joint_prim.GetJoint2Rel().GetTargets()[0]
-                if (not stage.GetPrimAtPath(joint1_path).IsA(UsdPhysics.Joint)  # type: ignore
-                        or not stage.GetPrimAtPath(joint2_path).IsA(UsdPhysics.Joint)):  # type: ignore
+                joint1_prim = stage.GetPrimAtPath(joint1_path)
+                joint2_prim = stage.GetPrimAtPath(joint2_path)
+                if (not joint1_prim.IsValid() or not joint1_prim.IsA(UsdPhysics.Joint)  # type: ignore
+                        or not joint2_prim.IsValid() or not joint2_prim.IsA(UsdPhysics.Joint)):  # type: ignore
                     raise ValueError(f"Equality joint {child_prim.GetName()} does not exist.")
                 joint1_name = joint1_path.name
                 joint2_name = joint2_path.name
