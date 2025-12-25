@@ -76,6 +76,7 @@ from .factory import (
     JointBuilder,
     JointType,
     JointProperty,
+    JointDriveProperty,
     get_joint_axis_and_quat,
     GeomBuilder,
     GeomType,
@@ -85,5 +86,6 @@ from .factory import (
     MaterialBuilder,
     MaterialProperty,
 )
+from .scene_exporter import export_mujoco_scene_to_usd
 
 # from .utils import modify_name, boxify, MjcfBoxify, UrdfBoxify

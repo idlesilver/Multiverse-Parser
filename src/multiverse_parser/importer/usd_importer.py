@@ -11,7 +11,7 @@ from pxr import UsdPhysics, Usd, UsdGeom, Sdf, Gf, UsdShade
 from ..factory import Factory, Configuration, InertiaSource
 from ..factory import (WorldBuilder,
                        BodyBuilder,
-                       JointAxis, JointType, JointProperty,
+                       JointAxis, JointType, JointProperty, JointDriveProperty,
                        GeomBuilder, GeomType, GeomProperty,
                        MeshProperty,
                        MaterialProperty)
@@ -66,6 +66,8 @@ class UsdImporter(Factory):
             if prim.IsInstanceable():
                 prim.SetInstanceable(False)
         self.stage.Flatten()
+        self._drive_distance_scale = UsdGeom.GetStageMetersPerUnit(self.stage)  # type: ignore
+        self._drive_angle_unit = "degree"
 
         if root_name is not None:
             self.name_map = {}
@@ -690,6 +692,46 @@ class UsdImporter(Factory):
             material_property._opacity = 1.0
         return material_path, material_property
 
+    def _get_drive_attr_value(self, joint_prim: Usd.Prim, drive_name: str, attr_name: str) -> Optional[float]:  # type: ignore
+        attr = joint_prim.GetAttribute(f"drive:{drive_name}:physics:{attr_name}")
+        if attr is None or not attr.IsValid() or not attr.HasAuthoredValueOpinion():
+            attr = joint_prim.GetAttribute(f"drive:{drive_name}:{attr_name}")
+        if attr is None or not attr.IsValid() or not attr.HasAuthoredValueOpinion():
+            return None
+        value = attr.Get()
+        if value is None:
+            return None
+        return float(value)
+
+    def _import_joint_drive(self, joint_prim: Usd.Prim, joint_builder, drive_name: Optional[str]) -> None:  # type: ignore
+        if drive_name is None:
+            return
+        stiffness = self._get_drive_attr_value(joint_prim, drive_name, "stiffness")
+        damping = self._get_drive_attr_value(joint_prim, drive_name, "damping")
+        max_force = self._get_drive_attr_value(joint_prim, drive_name, "maxForce")
+        target_position = self._get_drive_attr_value(joint_prim, drive_name, "targetPosition")
+        target_velocity = self._get_drive_attr_value(joint_prim, drive_name, "targetVelocity")
+
+        if all(value is None for value in [stiffness, damping, max_force, target_position, target_velocity]):
+            return
+
+        stiffness = 0.0 if stiffness is None else stiffness
+        damping = 0.0 if damping is None else damping
+        target_position = 0.0 if target_position is None else target_position
+        target_velocity = 0.0 if target_velocity is None else target_velocity
+
+        if max_force is not None and max_force <= 0.0:
+            max_force = None
+        drive_property = JointDriveProperty(stiffness=stiffness,
+                                             damping=damping,
+                                             max_force=max_force,
+                                             target_position=target_position,
+                                             target_velocity=target_velocity,
+                                             drive_name=drive_name,
+                                             distance_scale=self._drive_distance_scale,
+                                             angle_unit=self._drive_angle_unit)
+        joint_builder.set_drive_property(drive_property)
+
     def _import_joint(self, joint_prim: Usd.Prim) -> None:  # type: ignore
         joint = UsdPhysics.Joint(joint_prim)  # type: ignore
         child_prim_path = joint.GetBody1Rel().GetTargets()[0]
@@ -758,10 +800,12 @@ class UsdImporter(Factory):
                 joint_type = JointType.REVOLUTE
             else:
                 joint_type = JointType.CONTINUOUS
+            drive_name = "angular"
         elif joint_prim.IsA(UsdPhysics.PrismaticJoint): # type: ignore
             joint = UsdPhysics.PrismaticJoint(joint) # type: ignore
             joint_axis = joint.GetAxisAttr().Get()
             joint_type = JointType.PRISMATIC
+            drive_name = "linear"
         else:
             raise ValueError(f"Joint type {joint_prim} not supported.")
 
@@ -775,6 +819,7 @@ class UsdImporter(Factory):
         if joint_prim.IsA(UsdPhysics.RevoluteJoint) or joint_prim.IsA(UsdPhysics.PrismaticJoint): # type: ignore
             joint_builder.joint.CreateUpperLimitAttr(joint.GetUpperLimitAttr().Get())
             joint_builder.joint.CreateLowerLimitAttr(joint.GetLowerLimitAttr().Get())
+        self._import_joint_drive(joint_prim=joint_prim, joint_builder=joint_builder, drive_name=drive_name)
 
         if child_body_builder not in self.body_builders_with_inertial: # type: ignore
             prim_with_inertial = self.stage.GetPrimAtPath(child_prim_path)

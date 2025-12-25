@@ -320,6 +320,18 @@ class JointProperty:
         self._child_prim = value
 
 
+@dataclass
+class JointDriveProperty:
+    stiffness: float = 0.0
+    damping: float = 0.0
+    max_force: Optional[float] = None
+    target_position: float = 0.0
+    target_velocity: float = 0.0
+    drive_name: Optional[str] = None
+    distance_scale: float = 1.0
+    angle_unit: str = "degree"
+
+
 class JointBuilder:
     stage: Usd.Stage
     joint: UsdPhysics.Joint
@@ -333,6 +345,7 @@ class JointBuilder:
         self._path = joint_property.parent_prim.GetPath().AppendChild(joint_name)
         self._joint_property = joint_property
         self._joint = self._create_joint()
+        self._drive_property = None
 
     def build(self) -> UsdPhysics.Joint:
         self._joint.CreateCollisionEnabledAttr(False)
@@ -392,6 +405,9 @@ class JointBuilder:
         else:
             logging.warning(f"[Joint {self.joint.GetName()}] Joint type {str(self.type)} does not have limits.")
 
+    def set_drive_property(self, drive_property: JointDriveProperty) -> None:
+        self._drive_property = drive_property
+
     @property
     def joint(self) -> UsdPhysics.Joint:
         return self._joint
@@ -427,3 +443,7 @@ class JointBuilder:
     @property
     def child_prim(self) -> UsdGeom.Xform:
         return self._joint_property.child_prim
+
+    @property
+    def drive_property(self) -> Optional[JointDriveProperty]:
+        return self._drive_property
