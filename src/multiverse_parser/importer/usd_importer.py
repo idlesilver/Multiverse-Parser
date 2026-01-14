@@ -168,6 +168,13 @@ class UsdImporter(Factory):
                 if (geom_can_move or body_can_move) and gprim_prim in self.geom_body_map:
                     self.body_builders_with_inertial[self.world_builder.get_body_builder(body_name=self.geom_body_map[gprim_prim].GetName())] = gprim_prim if geom_can_move else body_prim
 
+            for body_prim in [body_prim for body_prim in self.stage.Traverse() if body_prim.IsA(UsdGeom.Xform)]:  # type: ignore
+                if body_prim.GetParent().IsPseudoRoot():
+                    continue
+                body_can_move = body_prim.HasAPI(UsdPhysics.RigidBodyAPI) and UsdPhysics.RigidBodyAPI(body_prim).GetRigidBodyEnabledAttr().Get() and not UsdPhysics.RigidBodyAPI(body_prim).GetKinematicEnabledAttr().Get() # type: ignore
+                if body_can_move:
+                    self.body_builders_with_inertial[self.world_builder.get_body_builder(body_name=body_prim.GetName())] = body_prim
+
             for joint_prim in [joint_prim for joint_prim in self.stage.Traverse() if
                                joint_prim.IsA(UsdPhysics.Joint)]:  # type: ignore
                 if any(black_list_name in str(joint_prim.GetPath()) for black_list_name in
