@@ -999,21 +999,23 @@ class MjcfExporter:
                         raise ValueError(f"Actuator {child_prim.GetName()} has neither joint nor tendon.")
                     existing_actuator_names.add(child_prim.GetName())
                     actuator_entries.append({
-                        "name": child_prim.GetName(),
-                        "obj_type": obj_type,
-                        "obj_name": obj_name,
-                        "actlimited": mujoco_actuator.GetActlimitedAttr().Get(),
-                        "actrange": mujoco_actuator.GetActrangeAttr().Get(),
-                        "ctrllimited": mujoco_actuator.GetCtrllimitedAttr().Get(),
-                        "ctrlrange": mujoco_actuator.GetCtrlrangeAttr().Get(),
-                        "forcelimited": mujoco_actuator.GetForcelimitedAttr().Get(),
-                        "forcerange": mujoco_actuator.GetForcerangeAttr().Get(),
-                        "biasprm": mujoco_actuator.GetBiasprmAttr().Get(),
-                        "biastype": mujoco_actuator.GetBiastypeAttr().Get(),
-                        "dynprm": mujoco_actuator.GetDynprmAttr().Get(),
-                        "dyntype": mujoco_actuator.GetDyntypeAttr().Get(),
-                        "gainprm": mujoco_actuator.GetGainprmAttr().Get(),
-                        "gaintype": mujoco_actuator.GetGaintypeAttr().Get(),
+                        "tag": "general",
+                        "attrs": {
+                            "name": child_prim.GetName(),
+                            obj_type: obj_name,
+                            "actlimited": mujoco_actuator.GetActlimitedAttr().Get(),
+                            "actrange": mujoco_actuator.GetActrangeAttr().Get(),
+                            "ctrllimited": mujoco_actuator.GetCtrllimitedAttr().Get(),
+                            "ctrlrange": mujoco_actuator.GetCtrlrangeAttr().Get(),
+                            "forcelimited": mujoco_actuator.GetForcelimitedAttr().Get(),
+                            "forcerange": mujoco_actuator.GetForcerangeAttr().Get(),
+                            "biasprm": mujoco_actuator.GetBiasprmAttr().Get(),
+                            "biastype": mujoco_actuator.GetBiastypeAttr().Get(),
+                            "dynprm": mujoco_actuator.GetDynprmAttr().Get(),
+                            "dyntype": mujoco_actuator.GetDyntypeAttr().Get(),
+                            "gainprm": mujoco_actuator.GetGainprmAttr().Get(),
+                            "gaintype": mujoco_actuator.GetGaintypeAttr().Get(),
+                        },
                     })
 
         for body_builder in self.factory.world_builder.body_builders:
@@ -1047,13 +1049,6 @@ class MjcfExporter:
                     stiffness = stiffness * distance_scale * distance_scale * angle_scale
                     damping = damping * distance_scale * distance_scale * angle_scale
 
-                biasprm = [0.0] * 10
-                biasprm[0] = stiffness * target_position + damping * target_velocity
-                biasprm[1] = -stiffness
-                biasprm[2] = -damping
-                gainprm = [0.0] * 10
-                gainprm[0] = stiffness
-
                 if max_force is not None and max_force > 0.0:
                     forcelimited = "true"
                     forcerange = [-max_force, max_force]
@@ -1061,43 +1056,82 @@ class MjcfExporter:
                     forcelimited = "false"
                     forcerange = [0.0, 0.0]
 
+                has_zero_target = (
+                    math.isclose(target_position, 0.0, abs_tol=1e-8) and
+                    math.isclose(target_velocity, 0.0, abs_tol=1e-8)
+                )
+                if has_zero_target:
+                    if stiffness > 0.0:
+                        actuator_entries.append({
+                            "tag": "position",
+                            "attrs": {
+                                "name": actuator_name,
+                                "joint": joint_name,
+                                "kp": stiffness,
+                                "kv": damping,
+                                "forcelimited": forcelimited,
+                                "forcerange": forcerange,
+                            },
+                        })
+                    elif damping > 0.0:
+                        actuator_entries.append({
+                            "tag": "velocity",
+                            "attrs": {
+                                "name": actuator_name,
+                                "joint": joint_name,
+                                "kv": damping,
+                                "forcelimited": forcelimited,
+                                "forcerange": forcerange,
+                            },
+                        })
+                    else:
+                        actuator_entries.append({
+                            "tag": "motor",
+                            "attrs": {
+                                "name": actuator_name,
+                                "joint": joint_name,
+                                "forcelimited": forcelimited,
+                                "forcerange": forcerange,
+                            },
+                        })
+                    continue
+
+                biasprm = [0.0] * 10
+                biasprm[0] = stiffness * target_position + damping * target_velocity
+                biasprm[1] = -stiffness
+                biasprm[2] = -damping
+                gainprm = [0.0] * 10
+                gainprm[0] = stiffness
                 actuator_entries.append({
-                    "name": actuator_name,
-                    "obj_type": "joint",
-                    "obj_name": joint_name,
-                    "actlimited": "false",
-                    "actrange": [0.0, 0.0],
-                    "ctrllimited": "false",
-                    "ctrlrange": [0.0, 0.0],
-                    "forcelimited": forcelimited,
-                    "forcerange": forcerange,
-                    "biasprm": biasprm,
-                    "biastype": "affine",
-                    "dynprm": [0.0] * 10,
-                    "dyntype": "none",
-                    "gainprm": gainprm,
-                    "gaintype": "fixed",
+                    "tag": "general",
+                    "attrs": {
+                        "name": actuator_name,
+                        "joint": joint_name,
+                        "actlimited": "false",
+                        "actrange": [0.0, 0.0],
+                        "ctrllimited": "false",
+                        "ctrlrange": [0.0, 0.0],
+                        "forcelimited": forcelimited,
+                        "forcerange": forcerange,
+                        "biasprm": biasprm,
+                        "biastype": "affine",
+                        "dynprm": [0.0] * 10,
+                        "dyntype": "none",
+                        "gainprm": gainprm,
+                        "gaintype": "fixed",
+                    },
                 })
 
         if len(actuator_entries) == 0:
             return
         actuator = ET.SubElement(self.root, "actuator")
         for entry in actuator_entries:
-            general = ET.SubElement(actuator, "general")
-            general.set("name", entry["name"])
-            general.set(entry["obj_type"], entry["obj_name"])
-            general.set("actlimited", entry["actlimited"])
-            general.set("actrange", " ".join(map(str, entry["actrange"])))
-            general.set("ctrllimited", entry["ctrllimited"])
-            general.set("ctrlrange", " ".join(map(str, entry["ctrlrange"])))
-            general.set("forcelimited", entry["forcelimited"])
-            general.set("forcerange", " ".join(map(str, entry["forcerange"])))
-            general.set("biasprm", " ".join(map(str, entry["biasprm"])))
-            general.set("biastype", str(entry["biastype"]))
-            general.set("dynprm", " ".join(map(str, entry["dynprm"])))
-            general.set("dyntype", str(entry["dyntype"]))
-            general.set("gainprm", " ".join(map(str, entry["gainprm"])))
-            general.set("gaintype", str(entry["gaintype"]))
+            actuator_node = ET.SubElement(actuator, entry["tag"])
+            for attr_name, attr_value in entry["attrs"].items():
+                if isinstance(attr_value, (list, tuple, numpy.ndarray)):
+                    actuator_node.set(attr_name, " ".join(map(str, attr_value)))
+                else:
+                    actuator_node.set(attr_name, str(attr_value))
 
     def _move_free_bodies(self) -> None:
         non_free_body_names = set()
