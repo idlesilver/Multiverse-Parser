@@ -13,7 +13,8 @@ from numpy import radians
 from multiverse_parser import logging
 from pxr import UsdMujoco, UsdUrdf, Gf, UsdPhysics, UsdGeom, Usd, UsdShade
 from ..factory import Factory
-from ..factory import (JointBuilder, JointType,
+from ..factory import (BodyBuilder,
+                       JointBuilder, JointType,
                        GeomBuilder, GeomType,
                        PointsBuilder, MaterialProperty)
 from ..utils import xform_cache, modify_name, merge_texture
@@ -319,7 +320,10 @@ class MjcfExporter:
             for geom_builder in first_body_builder.geom_builders:
                 self._build_geom(geom_builder=geom_builder, body=worldbody)
         else:
-            self._build_body(body_name=first_body_name, parent_body_name="worldbody")
+            if self._should_export_body_as_site(body_builder=first_body_builder):
+                self._build_site(site_name=first_body_name, parent_body_name="worldbody")
+            else:
+                self._build_body(body_name=first_body_name, parent_body_name="worldbody")
 
         body_builders = world_builder.body_builders
         reduces_body_builders = body_builders
@@ -334,7 +338,10 @@ class MjcfExporter:
                         body_name not in self.body_dict and
                         len(body_builder.joint_builders) == 0):
                     stop = False
-                    self._build_body(body_name=body_name, parent_body_name=parent_body_name)
+                    if self._should_export_body_as_site(body_builder=body_builder):
+                        self._build_site(site_name=body_name, parent_body_name=parent_body_name)
+                    else:
+                        self._build_body(body_name=body_name, parent_body_name=parent_body_name)
                     reduces_body_builders.remove(body_builder)
                 for joint_builder in body_builder.joint_builders:
                     parent_body_name = joint_builder.parent_prim.GetName()
@@ -743,6 +750,39 @@ class MjcfExporter:
 
         for points_builder in body_builder.points_builders:
             self._build_composite(points_builder=points_builder, body=body)
+
+    def _should_export_body_as_site(self, body_builder: BodyBuilder) -> bool:
+        xform_prim = body_builder.xform.GetPrim()
+        return (len(list(xform_prim.GetChildren())) == 0 and
+                len(body_builder.joint_builders) == 0 and
+                not xform_prim.HasAPI(UsdPhysics.MassAPI) and  # type: ignore
+                not xform_prim.HasAPI(UsdPhysics.RigidBodyAPI))  # type: ignore
+
+    def _build_site(self, site_name: str, parent_body_name: str) -> None:
+        parent_body = self.body_dict[parent_body_name]
+        site = ET.SubElement(parent_body, "site")
+        site.set("name", site_name)
+
+        world_builder = self.factory.world_builder
+        body_builder = world_builder.get_body_builder(site_name)
+        xform_prim = body_builder.xform.GetPrim()
+
+        if xform_prim.HasAPI(UsdMujoco.MujocoBodyAPI):  # type: ignore
+            mujoco_body_api = UsdMujoco.MujocoBodyAPI(xform_prim)  # type: ignore
+        else:
+            if parent_body_name == "world" or parent_body_name == "worldbody":
+                mujoco_body_api = get_mujoco_body_api(xform_prim=xform_prim)
+            else:
+                parent_body_builder = world_builder.get_body_builder(parent_body_name)
+                parent_xform_prim = parent_body_builder.xform.GetPrim()
+                mujoco_body_api = get_mujoco_body_api(xform_prim=xform_prim, parent_xform_prim=parent_xform_prim)
+
+        pos = mujoco_body_api.GetPosAttr().Get()
+        quat = mujoco_body_api.GetQuatAttr().Get()
+        quat = numpy.array([quat.GetReal(), *quat.GetImaginary()])
+
+        site.set("pos", " ".join(map(str, pos)))
+        site.set("quat", " ".join(map(str, quat)))
 
     def _build_geom(self, geom_builder: GeomBuilder, body: ET.Element) -> None:
         mujoco_geom_api = get_mujoco_geom_api(geom_builder=geom_builder,
